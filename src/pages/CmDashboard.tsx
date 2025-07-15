@@ -18,6 +18,26 @@ interface CmCode {
   signoff_date?: string | null;
   signoff_status?: string | null;
   document_url?: string | null;
+  periods?: string | null; // Comma-separated period IDs like "2,3"
+}
+
+// Interface for Period data structure
+interface Period {
+  id: number;
+  period: string;
+}
+
+// Interface for Signoff Details
+interface SignoffDetail {
+  [key: string]: any; // Allow any properties from API response
+}
+
+// Interface for API Response
+interface SignoffApiResponse {
+  success: boolean;
+  cm_code: string;
+  count: number;
+  data: SignoffDetail[];
 }
 
 // Interface for API response
@@ -35,12 +55,21 @@ const CmDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCmCodes, setSelectedCmCodes] = useState<string[]>([]);
   const [selectedSignoffStatuses, setSelectedSignoffStatuses] = useState<string[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [periods, setPeriods] = useState<Array<{id: number, period: string}>>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+  // Signoff modal state
+  const [showSignoffModal, setShowSignoffModal] = useState(false);
+  const [selectedCmCode, setSelectedCmCode] = useState<string>('');
+  const [signoffDetails, setSignoffDetails] = useState<SignoffDetail[]>([]);
+  const [signoffLoading, setSignoffLoading] = useState(false);
+  const [signoffError, setSignoffError] = useState<string | null>(null);
   const [appliedFilters, setAppliedFilters] = useState<{
     cmCodes: string[];
     signoffStatuses: string[];
-  }>({ cmCodes: [], signoffStatuses: [] });
+    period: string;
+  }>({ cmCodes: [], signoffStatuses: [], period: '' });
 
   const { instance, accounts } = useMsal();
 
@@ -71,6 +100,8 @@ const CmDashboard: React.FC = () => {
         const result: ApiResponse = await response.json();
         
         if (result.success) {
+          console.log('CM Codes API Response:', result.data);
+          console.log('Sample CM Code with periods:', result.data.find(item => item.periods));
           setCmCodes(result.data);
           
           // Extract unique signoff statuses for filter (if available)
@@ -107,17 +138,41 @@ const CmDashboard: React.FC = () => {
     fetchCmCodes();
   }, []);
 
+  // Fetch periods from API
+  useEffect(() => {
+    const fetchPeriods = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/sku-details-active-years');
+        if (!response.ok) throw new Error('Failed to fetch periods');
+        const result = await response.json();
+        console.log('Periods API Response:', result);
+        if (result.success && Array.isArray(result.years)) {
+          setPeriods(result.years);
+          console.log('Available periods:', result.years);
+        } else {
+          setPeriods([]);
+        }
+      } catch (err) {
+        console.error('Error fetching periods:', err);
+        setPeriods([]);
+      }
+    };
+    fetchPeriods();
+  }, []);
+
   // Handle search and reset
   const handleSearch = () => {
     console.log('Search with filters:', {
       cmCodes: selectedCmCodes,
-      signoffStatuses: selectedSignoffStatuses
+      signoffStatuses: selectedSignoffStatuses,
+      period: selectedPeriod
     });
     
     // Apply the selected filters
     setAppliedFilters({
       cmCodes: selectedCmCodes,
-      signoffStatuses: selectedSignoffStatuses
+      signoffStatuses: selectedSignoffStatuses,
+      period: selectedPeriod
     });
     
     // Reset to first page when applying filters
@@ -131,13 +186,17 @@ const CmDashboard: React.FC = () => {
     if (selectedSignoffStatuses.length > 0) {
       console.log(`Filtering by Signoff Statuses: ${selectedSignoffStatuses.join(', ')}`);
     }
+    if (selectedPeriod) {
+      console.log(`Filtering by Period: ${selectedPeriod}`);
+    }
   };
 
   const handleReset = () => {
     // Clear all filters
     setSelectedCmCodes([]);
     setSelectedSignoffStatuses([]);
-    setAppliedFilters({ cmCodes: [], signoffStatuses: [] });
+    setSelectedPeriod('');
+    setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: '' });
     setCurrentPage(1);
     
     // Refresh data from API
@@ -184,10 +243,13 @@ const CmDashboard: React.FC = () => {
   // Filter data based on applied filters
   const filteredData = useMemo(() => {
     let filtered = cmCodes;
+    console.log('Starting filter with total items:', filtered.length);
+    console.log('Applied filters:', appliedFilters);
 
     // Filter by CM Code
     if (appliedFilters.cmCodes.length > 0) {
       filtered = filtered.filter(item => appliedFilters.cmCodes.includes(item.cm_code));
+      console.log(`Filtered by CM Codes: ${appliedFilters.cmCodes.join(', ')}. Results: ${filtered.length}`);
     }
 
     // Filter by Signoff Status
@@ -195,8 +257,32 @@ const CmDashboard: React.FC = () => {
       filtered = filtered.filter(item => 
         item.signoff_status && appliedFilters.signoffStatuses.includes(item.signoff_status)
       );
+      console.log(`Filtered by Signoff Statuses: ${appliedFilters.signoffStatuses.join(', ')}. Results: ${filtered.length}`);
     }
 
+    // Filter by Period
+    if (appliedFilters.period) {
+      const beforePeriodFilter = filtered.length;
+      console.log(`Applying period filter for period ID: "${appliedFilters.period}"`);
+      console.log(`Items before period filter:`, filtered.map(item => ({ cm_code: item.cm_code, periods: item.periods })));
+      
+      filtered = filtered.filter(item => {
+        // Check if the item has period data (assuming it's stored as comma-separated values)
+        if (item.periods) {
+          // Split the comma-separated period values and check if selected period ID exists
+          const itemPeriods = item.periods.split(',').map((p: string) => p.trim());
+          const selectedPeriodId = appliedFilters.period; // This is the ID value from dropdown
+          const matches = itemPeriods.includes(selectedPeriodId);
+          console.log(`Item ${item.cm_code} has periods: "${item.periods}" -> [${itemPeriods}]. Selected Period ID: "${selectedPeriodId}". Match: ${matches}`);
+          return matches;
+        }
+        console.log(`Item ${item.cm_code} has no period data`);
+        return false; // If no period data, exclude from results
+      });
+      console.log(`Filtered by Period ID: ${appliedFilters.period}. Before: ${beforePeriodFilter}, After: ${filtered.length}`);
+    }
+
+    console.log(`Final filtered results: ${filtered.length} items`);
     return filtered;
   }, [cmCodes, appliedFilters]);
 
@@ -237,6 +323,55 @@ const CmDashboard: React.FC = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
     XLSX.writeFile(workbook, 'cm-data.xlsx');
+  };
+
+  // Handle file icon click to show signoff details
+  const handleFileIconClick = async (cmCode: string) => {
+    console.log('File icon clicked for CM Code:', cmCode);
+    setSelectedCmCode(cmCode);
+    setShowSignoffModal(true);
+    console.log('Modal should be open now, showSignoffModal:', true);
+    setSignoffLoading(true);
+    setSignoffError(null);
+    setSignoffDetails([]);
+
+    try {
+      const response = await fetch(`http://localhost:3000/signoff-details/${cmCode}`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: SignoffApiResponse = await response.json();
+      console.log('API Response:', result);
+      if (result.success) {
+        // Handle the nested data structure - store all records
+        if (result.data && Array.isArray(result.data)) {
+          setSignoffDetails(result.data);
+        } else {
+          setSignoffDetails([]);
+        }
+      } else {
+        throw new Error('API returned unsuccessful response');
+      }
+    } catch (err) {
+      console.error('Error fetching signoff details:', err);
+      setSignoffError(err instanceof Error ? err.message : 'Failed to fetch signoff details');
+    } finally {
+      setSignoffLoading(false);
+    }
+  };
+
+  // Handle close signoff modal
+  const handleCloseSignoffModal = () => {
+    setShowSignoffModal(false);
+    setSelectedCmCode('');
+    setSignoffDetails([]);
+    setSignoffError(null);
   };
 
   return (
@@ -286,6 +421,31 @@ const CmDashboard: React.FC = () => {
                     loading={loading}
                   />
                   {loading && <small style={{color: '#666'}}>Loading signoff statuses...</small>}
+                  {error && <small style={{color: 'red'}}>Error: {error}</small>}
+                </li>
+                <li>
+                  <div className="fBold">Period</div>
+                  <select
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff'
+                    }}
+                    disabled={loading}
+                  >
+                    <option value="">Select Period</option>
+                    {periods.map(period => (
+                      <option key={period.id} value={period.id.toString()}>
+                        {period.period}
+                      </option>
+                    ))}
+                  </select>
+                  {loading && <small style={{color: '#666'}}>Loading periods...</small>}
                   {error && <small style={{color: 'red'}}>Error: {error}</small>}
                 </li>
                 <li>
@@ -347,13 +507,14 @@ const CmDashboard: React.FC = () => {
                   <th>Signoff Status</th>
                   <th>Signoff By/Rejected By</th>
                   <th>Signoff Date/ Rejected Date</th>
+                  <th>Document</th>
                   <th>Add/View SKU</th>
                 </tr>
               </thead>
               <tbody>
                 {currentData.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '20px' }}>
                       No data available
                     </td>
                   </tr>
@@ -386,6 +547,32 @@ const CmDashboard: React.FC = () => {
                       </td>
                       <td>
                         {row.signoff_status === 'approved' ? row.signoff_date : '-'}
+                      </td>
+                      <td>
+                        <div className="action-btns">
+                          <button
+                            type="button"
+                            onClick={() => handleFileIconClick(row.cm_code)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: '#000',
+                              color: '#fff',
+                              borderRadius: 6,
+                              width: 36,
+                              height: 36,
+                              fontSize: 18,
+                              border: 'none',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                              cursor: 'pointer',
+                              textDecoration: 'none'
+                            }}
+                            title="View Document Details"
+                          >
+                            <i className="ri-file-line"></i>
+                          </button>
+                        </div>
                       </td>
                       <td>
                         <div className="action-btns">
@@ -432,6 +619,278 @@ const CmDashboard: React.FC = () => {
           />
         )}
       </div>
+
+      {/* Signoff Details Modal */}
+      {showSignoffModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            background: '#fff',
+            width: '80%',
+            maxWidth: '1200px',
+            height: '95vh',
+            padding: '40px',
+            overflowY: 'auto',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            borderRadius: '12px',
+            position: 'relative'
+          }}>
+            {/* Close Button */}
+            <button
+              onClick={handleCloseSignoffModal}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: '#000',
+                border: 'none',
+                fontSize: '24px',
+                color: '#fff',
+                cursor: 'pointer',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease',
+                zIndex: 1000
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#333';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#000';
+                e.currentTarget.style.color = '#fff';
+              }}
+            >
+              <i className="ri-close-line"></i>
+            </button>
+            
+            <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#333', paddingRight: '50px' }}>
+              Signoff Details for {selectedCmCode}
+            </h2>
+            {signoffLoading && <Loader />}
+            {signoffError && <p style={{ color: 'red' }}>{signoffError}</p>}
+            {signoffDetails.length > 0 && (
+              <div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '24px',
+                  paddingBottom: '16px',
+                  borderBottom: '2px solid #e9ecef'
+                }}>
+                  <h3 style={{ margin: 0, color: '#333', fontSize: '18px', fontWeight: '600' }}>
+                    Signoff Records ({signoffDetails.length})
+                  </h3>
+                  <div style={{ 
+                    background: '#30ea03', 
+                    color: '#000', 
+                    padding: '4px 12px', 
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}>
+                    {signoffDetails.length} {signoffDetails.length === 1 ? 'Record' : 'Records'}
+                  </div>
+                </div>
+                
+                {signoffDetails.map((record, index) => (
+                  <div key={index} style={{ 
+                    background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '6px',
+                    padding: '6px',
+                    marginBottom: '4px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Record Header */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '4px',
+                      paddingBottom: '4px',
+                      borderBottom: '1px solid #e9ecef'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}>
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #30ea03 0%, #28a745 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#000',
+                          fontWeight: 'bold',
+                          fontSize: '10px'
+                        }}>
+                          {index + 1}
+                        </div>
+                        <span style={{
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#333'
+                        }}>
+                          Record {index + 1}
+                        </span>
+                      </div>
+                      <div style={{
+                        padding: '6px 16px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        background: record.signoff_status === 'Approved' ? '#d4edda' : '#f8d7da',
+                        color: record.signoff_status === 'Approved' ? '#155724' : '#721c24'
+                      }}>
+                        {record.signoff_status}
+                      </div>
+                    </div>
+
+                    {/* Key Fields in Row */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr 1fr',
+                      gap: '8px'
+                    }}>
+                      {/* Signoff By */}
+                      <div style={{
+                        background: '#ffffff',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        border: '1px solid #e9ecef',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <i className="ri-user-line" style={{ color: '#30ea03', fontSize: '12px' }}></i>
+                          <span style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', textTransform: 'uppercase' }}>
+                            Signoff By
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: '500', color: '#333' }}>
+                          {record.signoff_by || 'N/A'}
+                        </div>
+                      </div>
+
+                      {/* Document URL */}
+                      <div style={{
+                        background: '#ffffff',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        border: '1px solid #e9ecef',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <i className="ri-file-line" style={{ color: '#30ea03', fontSize: '12px' }}></i>
+                          <span style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', textTransform: 'uppercase' }}>
+                            Document
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: '500', color: '#333' }}>
+                          {record.document_url ? (
+                            <a 
+                              href={record.document_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{
+                                color: '#007bff',
+                                textDecoration: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <i className="ri-external-link-line" style={{ fontSize: '10px' }}></i>
+                              View Document
+                            </a>
+                          ) : (
+                            <span style={{ color: '#6c757d' }}>No document available</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Created Date */}
+                      <div style={{
+                        background: '#ffffff',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        border: '1px solid #e9ecef',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <i className="ri-calendar-line" style={{ color: '#30ea03', fontSize: '12px' }}></i>
+                          <span style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', textTransform: 'uppercase' }}>
+                            Created Date
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: '500', color: '#333' }}>
+                          {record.created_at ? new Date(record.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button 
+              style={{
+                background: '#dc3545',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 20px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                marginTop: '16px'
+              }}
+              onClick={handleCloseSignoffModal}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
