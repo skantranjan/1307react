@@ -932,17 +932,6 @@ const CmSkuDetail: React.FC = () => {
                 <li>
                   <strong>Total SKUs: </strong> {skuData.length}
                 </li>
-                <li style={{ marginLeft: 'auto' }}>
-                  <button
-                    className="btnCommon btnGreen"
-                    style={{ minWidth: 180, fontWeight: 600 }}
-                    onClick={() => {
-                      navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
-                    }}
-                  >
-                    Send For Approval <i className="ri-send-plane-2-line"></i>
-                  </button>
-                </li>
               </ul>
             </div>
           </div>
@@ -1000,8 +989,8 @@ const CmSkuDetail: React.FC = () => {
                 </li>
                 <li style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                   <button
-                    className="add-sku-btn"
-                    style={{ backgroundColor: '#30ea03', color: '#000', marginBottom: 0, float: 'right', minWidth: 120 }}
+                    className="btnCommon btnGreen"
+                    style={{ minWidth: 120, fontWeight: 600 }}
                     onClick={() => setShowSkuModal(true)}
                   >
                     Add SKU <i className="ri-add-circle-line"></i>
@@ -1012,6 +1001,15 @@ const CmSkuDetail: React.FC = () => {
                     onClick={handleExportToExcel}
                   >
                     Export to Excel <i className="ri-file-excel-2-line"></i>
+                  </button>
+                  <button
+                    className="btnCommon btnGreen"
+                    style={{ minWidth: 120 }}
+                    onClick={() => {
+                      navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
+                    }}
+                  >
+                    Generate PDF <i className="ri-file-pdf-2-line me-1"></i>
                   </button>
                 </li>
               </ul>
@@ -1075,7 +1073,7 @@ const CmSkuDetail: React.FC = () => {
                   </div>
                   <Collapse isOpened={openIndex === index}>
                     <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, gap: 8 }}>
                         <button
                           style={{
                             background: '#30ea03',
@@ -1099,6 +1097,29 @@ const CmSkuDetail: React.FC = () => {
                         >
                           <i className="ri-pencil-line" style={{ fontSize: 18, marginRight: 6 }} />
                           Edit SKU
+                        </button>
+                        <button
+                          style={{
+                            background: '#30ea03',
+                            color: '#000',
+                            border: 'none',
+                            borderRadius: 4,
+                            fontWeight: 'bold',
+                            padding: '8px 22px',
+                            fontSize: 16,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8
+                          }}
+                          title="Send for Approval"
+                          onClick={() => {
+                            navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
+                          }}
+                        >
+                          <i className="ri-send-plane-2-line" style={{ fontSize: 18, marginRight: 6 }} />
+                          Send for Approval
                         </button>
                       </div>
                       <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>

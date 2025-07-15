@@ -415,7 +415,7 @@ const SedForApproval: React.FC = () => {
         </div>
         <div className="commonTitle">
           <div className="icon">
-            <i className="ri-send-plane-2-fill"></i>
+            <i className="ri-file-pdf-2-fill"></i>
           </div>
           <h1>Generate PDF</h1>
         </div>
@@ -435,82 +435,92 @@ const SedForApproval: React.FC = () => {
         <div className="row">
           <div className="col-sm-12">
             <div className="filters">
-              <ul>
-                <li>
-                  <div className="fBold">Years</div>
-                  <select
-                    value={selectedYears.length > 0 ? selectedYears[0] : ''}
-                    onChange={(e) => {
-                      console.log('Year selected:', e.target.value);
-                      console.log('Available years:', years);
-                      setSelectedYears(e.target.value ? [e.target.value] : []);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: '#fff'
-                    }}
-                    disabled={years.length === 0}
-                  >
-                    <option value="">Select Year</option>
-                    {years.length === 0 ? (
-                      <option value="" disabled>Loading years...</option>
-                    ) : (
-                      years.filter(y => y && typeof y === 'string' && y.trim() !== '').map((year, index) => (
-                        <option key={index} value={year}>
-                          {year}
-                        </option>
-                      ))
+              <div className="row g-3">
+                <div className="col-md-3">
+                  <div className="filter-group">
+                    <label className="fBold">Years</label>
+                    <select
+                      value={selectedYears.length > 0 ? selectedYears[0] : ''}
+                      onChange={(e) => {
+                        console.log('Year selected:', e.target.value);
+                        console.log('Available years:', years);
+                        setSelectedYears(e.target.value ? [e.target.value] : []);
+                      }}
+                      className="form-control"
+                      disabled={years.length === 0}
+                    >
+                      <option value="">Select Year</option>
+                      {years.length === 0 ? (
+                        <option value="" disabled>Loading years...</option>
+                      ) : (
+                        years.filter(y => y && typeof y === 'string' && y.trim() !== '').map((year, index) => (
+                          <option key={index} value={year}>
+                            {year}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    {years.length === 0 && (
+                      <div className="text-muted small mt-1">
+                        No years available. Please check the API connection.
+                      </div>
                     )}
-                  </select>
-                  {years.length === 0 && (
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                      No years available. Please check the API connection.
-                    </div>
-                  )}
-                  {years.length > 0 && (
-                    <div style={{ fontSize: '12px', color: '#30ea03', marginTop: '4px' }}>
-                      {years.length} years loaded successfully
-                    </div>
-                  )}
-                </li>
-                <li>
-                  <div className="fBold">Component Fields</div>
-                  <MultiSelect
-                    options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
-                    selectedValues={selectedFields}
-                    onSelectionChange={setSelectedFields}
-                    placeholder="Select Component Fields..."
-                    disabled={componentFields.length === 0}
-                    loading={false}
-                  />
-                </li>
-                <li>
-                  <button className="btnCommon btnGreen filterButtons" onClick={() => {}} disabled={loading}>
-                    <span>Search</span>
-                    <i className="ri-search-line"></i>
-                  </button>
-                </li>
-                <li>
-                  <button className="btnCommon btnBlack filterButtons" onClick={() => {setSelectedYears([]); setSelectedFields([]);}} disabled={loading}>
-                    <span>Reset</span>
-                    <i className="ri-refresh-line"></i>
-                  </button>
-                </li>
-                <li style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                  <button
-                    className="btnCommon btnGreen"
-                    style={{ minWidth: 120 }}
-                    onClick={handleGeneratePDF}
-                    disabled={selectedRows.length === 0}
-                  >
-                    Generate PDF <i className="ri-file-pdf-2-line"></i>
-                  </button>
-                </li>
-              </ul>
+                    {years.length > 0 && (
+                      <div className="text-success small mt-1">
+                        {years.length} years loaded successfully
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="col-md-4">
+                  <div className="filter-group">
+                    <label className="fBold">Component Fields</label>
+                    <MultiSelect
+                      options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
+                      selectedValues={selectedFields}
+                      onSelectionChange={setSelectedFields}
+                      placeholder="Select Component Fields..."
+                      disabled={componentFields.length === 0}
+                      loading={false}
+                    />
+                  </div>
+                </div>
+                
+                <div className="col-md-2">
+                  <div className="filter-group">
+                    <label className="fBold">&nbsp;</label>
+                    <button className="btnCommon btnGreen w-100" onClick={() => {}} disabled={loading}>
+                      <span>Search</span>
+                      <i className="ri-search-line"></i>
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="col-md-2">
+                  <div className="filter-group">
+                    <label className="fBold">&nbsp;</label>
+                    <button className="btnCommon btnBlack w-100" onClick={() => {setSelectedYears([]); setSelectedFields([]);}} disabled={loading}>
+                      <span>Reset</span>
+                      <i className="ri-refresh-line"></i>
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="col-md-1">
+                  <div className="filter-group">
+                    <label className="fBold">&nbsp;</label>
+                    <button
+                      className="btnCommon btnGreen w-100"
+                      onClick={handleGeneratePDF}
+                      disabled={selectedRows.length === 0}
+                      title="Generate PDF"
+                    >
+                      <i className="ri-file-pdf-2-line"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -529,64 +539,148 @@ const SedForApproval: React.FC = () => {
         )}
 
         {selectedYears.length > 0 && selectedFields.length > 0 && tableData.length > 0 ? (
-          <div style={{ width: '100%', overflowX: 'auto' }}>
-            <table style={{ minWidth: 600, width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden', fontSize: '0.95rem' }}>
-              <thead style={{ background: '#30ea03' }}>
-                <tr>
-                  <th style={{ padding: 8, textAlign: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={e => handleSelectAll(e.target.checked)}
-                      aria-label="Select All"
-                    />
-                  </th>
-                  <th style={{ padding: 8 }}>3PM Code</th>
-                  <th style={{ padding: 8 }}>3PM Description</th>
-                  {selectedFields.map(fieldLabel => (
-                    <th key={fieldLabel} style={{ padding: 8 }}>{fieldLabel}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredData.length === 0 ? (
-                  <tr>
-                    <td colSpan={selectedFields.length + 3} style={{ textAlign: 'center', padding: 24 }}>
-                      {'No data matches the selected component fields'}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.map((row, index) => (
-                    <tr key={row.id || row.component_id || row.componentId || index} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.includes(row.id || row.component_id || row.componentId)}
-                          onChange={e => handleRowSelect(row.id || row.component_id || row.componentId, e.target.checked)}
-                          aria-label={`Select row ${row.id || row.component_id || row.componentId}`}
-                        />
-                      </td>
-                      <td style={{ padding: 8 }}>{cmCode}</td>
-                      <td style={{ padding: 8 }}>{cmDescription}</td>
-                      {selectedFields.map(fieldLabel => {
-                        const fieldName = componentFieldValues[fieldLabel];
-                        return (
-                          <td key={fieldLabel} style={{ padding: 8 }}>{row[fieldName] || '-'}</td>
-                        );
-                      })}
-                    </tr>
-                  ))
+          <div className="row">
+            <div className="col-12">
+              <div className="card shadow-sm border-0">
+                <div className="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-3">
+                  <h6 className="mb-0 fw-bold text-dark">
+                    <i className="ri-table-line me-2"></i>
+                    Component Data ({filteredData.length} records)
+                  </h6>
+                  <div className="d-flex gap-2">
+                    <span className="badge bg-success rounded-pill">
+                      <i className="ri-check-line me-1"></i>
+                      {selectedRows.length} Selected
+                    </span>
+                  </div>
+                </div>
+                <div className="table-responsive">
+                  <table className="table table-hover mb-0">
+                    <thead style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                      <tr>
+                        <th scope="col" style={{ width: '60px', textAlign: 'center', borderTop: 'none' }}>
+                          <div className="form-check d-flex justify-content-center">
+                            <input
+                              type="checkbox"
+                              checked={allSelected}
+                              onChange={e => handleSelectAll(e.target.checked)}
+                              aria-label="Select All"
+                              className="form-check-input"
+                              style={{ transform: 'scale(1.2)' }}
+                            />
+                          </div>
+                        </th>
+                        <th scope="col" style={{ borderTop: 'none', fontWeight: '600', color: '#495057' }}>
+                          <i className="ri-hashtag me-1"></i>3PM Code
+                        </th>
+                        <th scope="col" style={{ borderTop: 'none', fontWeight: '600', color: '#495057' }}>
+                          <i className="ri-file-text-line me-1"></i>3PM Description
+                        </th>
+                        {selectedFields.map(fieldLabel => (
+                          <th key={fieldLabel} scope="col" style={{ borderTop: 'none', fontWeight: '600', color: '#495057' }}>
+                            <i className="ri-settings-3-line me-1"></i>{fieldLabel}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredData.length === 0 ? (
+                        <tr>
+                          <td colSpan={selectedFields.length + 3} className="text-center py-5">
+                            <div className="text-muted">
+                              <i className="ri-inbox-line me-2" style={{ fontSize: '24px' }}></i>
+                              <div className="mt-2">No data matches the selected component fields</div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredData.map((row, index) => (
+                          <tr key={row.id || row.component_id || row.componentId || index} 
+                              style={{ 
+                                borderBottom: '1px solid #f1f3f4',
+                                transition: 'all 0.2s ease'
+                              }}
+                              className="hover-row">
+                            <td className="text-center align-middle">
+                              <div className="form-check d-flex justify-content-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.includes(row.id || row.component_id || row.componentId)}
+                                  onChange={e => handleRowSelect(row.id || row.component_id || row.componentId, e.target.checked)}
+                                  aria-label={`Select row ${row.id || row.component_id || row.componentId}`}
+                                  className="form-check-input"
+                                  style={{ transform: 'scale(1.1)' }}
+                                />
+                              </div>
+                            </td>
+                            <td className="align-middle">
+                              <span className="badge bg-primary rounded-pill px-3 py-2">
+                                {cmCode}
+                              </span>
+                            </td>
+                            <td className="align-middle">
+                              <div className="fw-medium text-dark">{cmDescription}</div>
+                            </td>
+                            {selectedFields.map(fieldLabel => {
+                              const fieldName = componentFieldValues[fieldLabel];
+                              const value = row[fieldName] || '-';
+                              return (
+                                <td key={fieldLabel} className="align-middle">
+                                  <span className="text-secondary">
+                                    {value}
+                                  </span>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {filteredData.length > 0 && (
+                  <div className="card-footer bg-light border-top py-2">
+                    <div className="row align-items-center">
+                      <div className="col-md-6">
+                        <small className="text-muted">
+                          Showing {filteredData.length} of {tableData.length} records
+                        </small>
+                      </div>
+                      <div className="col-md-6 text-end">
+                        <button
+                          className="btn btn-sm btn-outline-success"
+                          onClick={handleGeneratePDF}
+                          disabled={selectedRows.length === 0}
+                        >
+                          <i className="ri-file-pdf-2-line me-1"></i>
+                          Generate PDF ({selectedRows.length})
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
         ) : selectedYears.length === 0 && selectedFields.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <p>Please select a year and component fields to view data</p>
+          <div className="row">
+            <div className="col-12">
+              <div className="text-center py-5">
+                <i className="ri-file-list-3-line" style={{ fontSize: '48px', color: '#ccc', marginBottom: '16px' }}></i>
+                <h5 className="text-muted">Select Filters</h5>
+                <p className="text-muted">Please select a year and component fields to view data</p>
+              </div>
+            </div>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <p>No component data available for the selected criteria</p>
+          <div className="row">
+            <div className="col-12">
+              <div className="text-center py-5">
+                <i className="ri-inbox-line" style={{ fontSize: '48px', color: '#ccc', marginBottom: '16px' }}></i>
+                <h5 className="text-muted">No Data Found</h5>
+                <p className="text-muted">No component data available for the selected criteria</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -599,33 +693,84 @@ const SedForApproval: React.FC = () => {
         onCancel={handleCloseModal}
       />
 
-      {/* Add responsive styles */}
+      {/* Enhanced table styles */}
       <style>{`
-      @media (max-width: 900px) {
-        .mainInternalPages { padding: 16px !important; }
-        table { font-size: 0.9rem !important; }
-        th, td { padding: 6px !important; }
-      }
-      @media (max-width: 600px) {
-        .mainInternalPages { padding: 4px !important; }
-        h1 { font-size: 1.2rem !important; }
-        .mainInternalPages > div, .mainInternalPages > table { width: 100% !important; }
-        .mainInternalPages label { font-size: 0.95rem !important; }
-        .mainInternalPages select, .mainInternalPages input, .mainInternalPages .multi-select-container { font-size: 0.95rem !important; min-width: 0 !important; }
-        .mainInternalPages .multi-select-container { width: 100% !important; }
-        .mainInternalPages .multi-select-dropdown { min-width: 180px !important; }
-        .mainInternalPages .multi-select-text { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-search input { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-options { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-option { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-trigger { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-dropdown { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-search { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-option .option-label { font-size: 0.95rem !important; }
-        .mainInternalPages .multi-select-option .checkmark { width: 16px !important; height: 16px !important; }
-        .mainInternalPages .multi-select-option input[type='checkbox'] { width: 16px !important; height: 16px !important; }
-        .mainInternalPages .multi-select-dropdown { left: 0 !important; right: 0 !important; min-width: 0 !important; }
-      }
+        .hover-row:hover {
+          background-color: #f8f9fa !important;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .table th {
+          font-weight: 600 !important;
+          text-transform: uppercase;
+          font-size: 0.85rem;
+          letter-spacing: 0.5px;
+        }
+        
+        .table td {
+          vertical-align: middle !important;
+          padding: 12px 8px !important;
+        }
+        
+        .badge {
+          font-weight: 500 !important;
+        }
+        
+        .card {
+          border-radius: 12px !important;
+          overflow: hidden;
+        }
+        
+        .card-header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+          color: white !important;
+        }
+        
+        .card-header h6 {
+          color: white !important;
+        }
+        
+        .table-responsive {
+          border-radius: 0 0 12px 12px;
+        }
+        
+        .form-check-input:checked {
+          background-color: #30ea03 !important;
+          border-color: #30ea03 !important;
+        }
+        
+        .btn-outline-success:hover {
+          background-color: #30ea03 !important;
+          border-color: #30ea03 !important;
+        }
+        
+        @media (max-width: 900px) {
+          .mainInternalPages { padding: 16px !important; }
+          .table { font-size: 0.9rem !important; }
+          .table th, .table td { padding: 8px 6px !important; }
+        }
+        
+        @media (max-width: 600px) {
+          .mainInternalPages { padding: 4px !important; }
+          h1 { font-size: 1.2rem !important; }
+          .mainInternalPages > div, .mainInternalPages > table { width: 100% !important; }
+          .mainInternalPages label { font-size: 0.95rem !important; }
+          .mainInternalPages select, .mainInternalPages input, .mainInternalPages .multi-select-container { font-size: 0.95rem !important; min-width: 0 !important; }
+          .mainInternalPages .multi-select-container { width: 100% !important; }
+          .mainInternalPages .multi-select-dropdown { min-width: 180px !important; }
+          .mainInternalPages .multi-select-text { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-search input { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-options { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-option { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-trigger { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-dropdown { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-search { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-option .option-label { font-size: 0.95rem !important; }
+          .mainInternalPages .multi-select-option .checkmark { width: 16px !important; height: 16px !important; }
+          .mainInternalPages .multi-select-option input[type='checkbox'] { width: 16px !important; height: 16px !important; }
+          .mainInternalPages .multi-select-dropdown { left: 0 !important; right: 0 !important; min-width: 0 !important; }
+        }
       `}</style>
     </Layout>
   );
