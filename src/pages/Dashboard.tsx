@@ -79,7 +79,7 @@ const Dashboard: React.FC = () => {
             id: index + 1,
             type: cm.signoff_status === 'approved' ? 'cm_approved' : 
                   cm.signoff_status === 'rejected' ? 'cm_rejected' : 'sku_added',
-            description: cm.signoff_status === 'approved' ? `CM Code ${cm.cm_code} approved` :
+            description: cm.signoff_status === 'approved' ? `CM Code ${cm.cm_code} signed` :
                         cm.signoff_status === 'rejected' ? `CM Code ${cm.cm_code} rejected` :
                         `New SKU added for ${cm.cm_code}`,
             timestamp: cm.updated_at || new Date().toISOString(),
@@ -307,7 +307,7 @@ const Dashboard: React.FC = () => {
                     <div className="d-flex justify-content-between">
                       <div>
                         <h4 className="card-title">{stats.approvedCmCodes}</h4>
-                        <p className="card-text">Approved Codes</p>
+                        <p className="card-text">Signed Codes</p>
                       </div>
                       <div className="align-self-center">
                         <i className="ri-check-line" style={{ fontSize: '2rem' }}></i>
@@ -368,7 +368,7 @@ const Dashboard: React.FC = () => {
                                style={{ width: '60px', height: '60px' }}>
                             <span className="text-white font-weight-bold">{stats.approvedCmCodes}</span>
                           </div>
-                          <p className="mt-2 mb-0">Approved</p>
+                          <p className="mt-2 mb-0">Signed</p>
                         </div>
                         <div className="text-center">
                           <div className="bg-warning rounded-circle d-inline-flex align-items-center justify-content-center" 

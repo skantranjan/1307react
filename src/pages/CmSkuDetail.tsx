@@ -628,16 +628,16 @@ const CmSkuDetail: React.FC = () => {
     componentDimensions: '',
   });
 
-  // State for evidence upload
-  const [evidenceChecks, setEvidenceChecks] = useState<boolean[]>([false, false, false, false]);
-  const [evidenceFiles, setEvidenceFiles] = useState<File[][]>([[], [], [], []]);
-  const [allEvidenceFiles, setAllEvidenceFiles] = useState<File[]>([]);
-  const [selectForAll, setSelectForAll] = useState(false);
-  const [uploadEvidenceChecked, setUploadEvidenceChecked] = useState(false);
+
 
   // Add state for Add Component modal fields and validation
   const [addComponentErrors, setAddComponentErrors] = useState<Record<string, string>>({});
   const [addComponentSuccess, setAddComponentSuccess] = useState("");
+
+  // Add state for category selection and file upload
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{id: string, categories: string[], files: File[]}>>([]);
 
   // Add state for selectedSkuCode
   const [selectedSkuCode, setSelectedSkuCode] = useState<string>('');
@@ -807,7 +807,7 @@ const CmSkuDetail: React.FC = () => {
       return <div>No component details available.</div>;
     }
     // Exclude technical fields you don't want to show
-    const excludeFields = ['id', 'user_id', 'created_by', 'last_update_date', 'created_date', 'category_entry_id', 'data_verification_entry_id', 'signed_off_by', 'signed_off_date', 'mandatory_fields_completion_status', 'evidence_provided', 'document_status', 'year', 'component_unit_weight_id'];
+    const excludeFields = ['id', 'user_id', 'created_by', 'last_update_date', 'created_date', 'category_entry_id', 'data_verification_entry_id', 'signed_off_by', 'signed_off_date', 'mandatory_fields_completion_status', 'evidence_provided', 'document_status', 'year', 'component_unit_weight_id', 'sku_code', 'formulation_reference'];
     const columns = Object.keys(data[0]).filter(key => !excludeFields.includes(key));
     return (
       <div className="table-responsive tableCommon tableGreen" style={{ overflowX: 'auto', marginTop: 16 }}>
@@ -881,29 +881,49 @@ const CmSkuDetail: React.FC = () => {
     <Layout>
       {(loading || !minimumLoaderComplete) && <Loader />}
       <div className="mainInternalPages" style={{ display: (loading || !minimumLoaderComplete) ? 'none' : 'block' }}>
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ 
+          marginBottom: 8, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          padding: '12px 0'
+        }}>
+          <div className="commonTitle">
+            <div className="icon">
+              <i className="ri-file-list-3-fill"></i>
+            </div>
+            <h1>3PM Detail</h1>
+          </div>
           <button
             onClick={() => navigate(-1)}
             style={{
-              background: 'none',
+              background: 'linear-gradient(135deg, #30ea03 0%, #28c402 100%)',
               border: 'none',
               color: '#000',
-              fontSize: 22,
+              fontSize: 14,
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              marginRight: 12
+              padding: '10px 16px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(48, 234, 3, 0.3)',
+              transition: 'all 0.3s ease',
+              minWidth: '100px',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(48, 234, 3, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(48, 234, 3, 0.3)';
             }}
           >
-            <i className="ri-arrow-left-line" style={{ fontSize: 24, marginRight: 4 }} />
+            <i className="ri-arrow-left-line" style={{ fontSize: 18, marginRight: 6 }} />
             Back
           </button>
-        </div>
-        <div className="commonTitle">
-          <div className="icon">
-            <i className="ri-file-list-3-fill"></i>
-          </div>
-          <h1>3PM Detail</h1>
         </div>
 
         <div className="filters CMDetails">
@@ -925,7 +945,7 @@ const CmSkuDetail: React.FC = () => {
                     color: status === 'approved' || status === 'Active' ? '#000' : '#fff',
                     fontWeight: 600
                   }}>
-                    {status ? (status.charAt(0).toUpperCase() + status.slice(1)) : 'N/A'}
+                    {status ? (status === 'approved' ? 'Signed' : status.charAt(0).toUpperCase() + status.slice(1)) : 'N/A'}
                   </span>
                 </li>
                 <li> | </li>
@@ -987,7 +1007,7 @@ const CmSkuDetail: React.FC = () => {
                     <i className="ri-refresh-line"></i>
                   </button>
                 </li>
-                <li style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <li style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     className="btnCommon btnGreen"
                     style={{ minWidth: 120, fontWeight: 600 }}
@@ -1004,12 +1024,19 @@ const CmSkuDetail: React.FC = () => {
                   </button>
                   <button
                     className="btnCommon btnGreen"
-                    style={{ minWidth: 120 }}
+                    style={{ 
+                      minWidth: 120,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontWeight: 600
+                    }}
                     onClick={() => {
                       navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
                     }}
                   >
-                    Generate PDF <i className="ri-file-pdf-2-line me-1"></i>
+                    <i className="ri-file-pdf-2-line" style={{ fontSize: 16 }}></i>
+                    Generate PDF
                   </button>
                 </li>
               </ul>
@@ -1384,50 +1411,95 @@ const CmSkuDetail: React.FC = () => {
       )}
 
       {showAddComponentModal && (
-        <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
+        <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.6)' }} tabIndex={-1}>
           <div className="modal-dialog modal-xl modal-dialog-scrollable">
-            <div className="modal-content">
-              <div className="modal-header" style={{ backgroundColor: '#30ea03', color: '#000', borderBottom: '2px solid #000', alignItems: 'center' }}>
-                <h5 className="modal-title" style={{ color: '#000', fontWeight: 700, flex: 1 }}>Add Component</h5>
-                <button
-                  type="button"
-                  onClick={() => setShowAddComponentModal(false)}
-                  aria-label="Close"
-                  style={{ background: 'none', border: 'none', color: '#000', fontSize: 32, fontWeight: 900, lineHeight: 1, cursor: 'pointer', marginLeft: 8 }}
-                >
-                  &times;
-                </button>
+            <div className="modal-content" style={{ 
+              borderRadius: '12px', 
+              border: 'none',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+            }}>
+              <div className="modal-header" style={{ 
+                backgroundColor: '#30ea03', 
+                color: '#000', 
+                borderBottom: '2px solid #000', 
+                alignItems: 'center',
+                padding: '20px 30px',
+                borderRadius: '12px 12px 0 0'
+              }}>
+                <h5 className="modal-title" style={{ 
+                  color: '#000', 
+                  fontWeight: 700, 
+                  flex: 1,
+                  fontSize: '20px',
+                  margin: 0
+                }}>
+                  <i className="ri-add-circle-line" style={{ marginRight: '10px', fontSize: '22px' }} />
+                  Add Component
+                </h5>
+                                  <button
+                    type="button"
+                    onClick={() => setShowAddComponentModal(false)}
+                    aria-label="Close"
+                    style={{ 
+                      background: 'none', 
+                      border: 'none', 
+                      color: '#000', 
+                      fontSize: 28, 
+                      fontWeight: 900, 
+                      lineHeight: 1, 
+                      cursor: 'pointer', 
+                      marginLeft: 8,
+                      padding: '0',
+                      width: '32px',
+                      height: '32px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '50%'
+                    }}
+                  >
+                    &times;
+                  </button>
               </div>
-                      <div className="modal-body" style={{ background: '#fff' }}>
-          <div className="container-fluid">
-            <div className="row g-3">
-              {/* Formulation Reference (Free text) */}
-              <div className="col-md-6">
-                <label>Formulation Reference <InfoIcon info="SKU Formulation code, please include MFC code
-" /></label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={addComponentData.formulationReference || ''}
-                  onChange={e => setAddComponentData({ ...addComponentData, formulationReference: e.target.value })}
-                />
-                {addComponentErrors.formulationReference && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.formulationReference}</div>}
-              </div>
+              <div className="modal-body" style={{ 
+                background: '#fff',
+                padding: '30px',
+                maxHeight: '70vh',
+                overflowY: 'auto'
+              }}>
+                <div className="container-fluid" style={{ padding: 0 }}>
+                  <div className="row g-4">
+
               {/* Component Type (Drop-down list) */}
               <div className="col-md-6">
-                <label>Material Type <InfoIcon info="Please select either Packaging or Raw Material for each SKU component
-" /></label>
+                <label style={{ 
+                  fontWeight: '600', 
+                  color: '#333', 
+                  marginBottom: '8px',
+                  display: 'block',
+                  fontSize: '14px'
+                }}>
+                  Material Type <InfoIcon info="Please select either Packaging or Raw Material for each SKU component" />
+                </label>
                 <select
                   className="form-control select-with-icon"
                   value={addComponentData.componentType}
                   onChange={e => setAddComponentData({ ...addComponentData, componentType: e.target.value })}
+                  style={{
+                    padding: '12px 16px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    backgroundColor: '#fff',
+                    transition: 'border-color 0.3s ease'
+                  }}
                 >
                   <option value="">Select Type</option>
                   {materialTypeOptions.map(opt => (
                     <option key={opt.id} value={opt.id}>{opt.item_name}</option>
                   ))}
                 </select>
-                {addComponentErrors.componentType && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.componentType}</div>}
+                {addComponentErrors.componentType && <div style={{ color: 'red', fontSize: 13, marginTop: '4px' }}>{addComponentErrors.componentType}</div>}
               </div>
               {/* Component Code (Free text) */}
               <div className="col-md-6">
@@ -1609,80 +1681,267 @@ const CmSkuDetail: React.FC = () => {
                   ))}
                 </select>
               </div>
-              {/* Component dimensions (3D - LxWxH, 2D - LxW) (Free text) */}
+                            {/* Component dimensions (3D - LxWxH, 2D - LxW) (Free text) */}
               <div className="col-md-6">
                 <label>Component dimensions (3D - LxWxH, 2D - LxW) <InfoIcon info="Enter the dimensions of the component (e.g., 10x5x2 cm)." /></label>
                 <input type="text" className="form-control" value={addComponentData.componentDimensions} onChange={e => setAddComponentData({ ...addComponentData, componentDimensions: e.target.value })} />
                 {addComponentErrors.componentDimensions && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.componentDimensions}</div>}
               </div>
+              
+              {/* Category Selection and File Upload Section */}
+              <div className="col-12">
+                <div style={{ 
+                  background: '#f8f9fa', 
+                  padding: '24px', 
+                  borderRadius: '8px', 
+                  border: '1px solid #e9ecef',
+                  marginTop: '16px'
+                }}>
+                  <h6 style={{ 
+                    fontWeight: '600', 
+                    color: '#333', 
+                    marginBottom: '20px',
+                    fontSize: '16px'
+                  }}>
+                    File Upload Section
+                  </h6>
+                  
+                  <div className="row">
+                    <div className="col-md-6">
+                      <label style={{ 
+                        fontWeight: '600', 
+                        color: '#333', 
+                        marginBottom: '8px',
+                        display: 'block'
+                      }}>
+                        Select Categories <InfoIcon info="Choose one or more categories for file upload." />
+                      </label>
+                      <MultiSelect
+                        options={[
+                          { value: '1', label: 'Category 1' },
+                          { value: '2', label: 'Category 2' },
+                          { value: '3', label: 'Category 3' },
+                          { value: '4', label: 'Category 4' }
+                        ]}
+                        selectedValues={selectedCategories}
+                        onSelectionChange={setSelectedCategories}
+                        placeholder="Select Categories..."
+                      />
+                    </div>
+                    
+                    <div className="col-md-6">
+                      <label style={{ 
+                        fontWeight: '600', 
+                        color: '#333', 
+                        marginBottom: '8px',
+                        display: 'block'
+                      }}>
+                        Browse Files <InfoIcon info="Select files to upload for the selected categories." />
+                      </label>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                        <input
+                          type="file"
+                          multiple
+                          className="form-control"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            setSelectedFiles(files);
+                          }}
+                          style={{ 
+                            flex: 1,
+                            padding: '10px 12px',
+                            border: '1px solid #ddd',
+                            borderRadius: '6px',
+                            fontSize: '14px'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{
+                            backgroundColor: '#30ea03',
+                            border: 'none',
+                            color: '#000',
+                            fontWeight: '600',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            whiteSpace: 'nowrap',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            if (selectedCategories.length > 0 && selectedFiles.length > 0) {
+                              const newUpload = {
+                                id: Date.now().toString(),
+                                categories: selectedCategories,
+                                files: selectedFiles
+                              };
+                              setUploadedFiles(prev => [...prev, newUpload]);
+                              // Don't clear selections - allow user to add more rows
+                              // setSelectedCategories([]);
+                              // setSelectedFiles([]);
+                            }
+                          }}
+                          disabled={selectedCategories.length === 0 || selectedFiles.length === 0}
+                        >
+                          <i className="ri-add-line" style={{ marginRight: '6px' }} />
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-              <div className="col-12" style={{ marginTop: 24 }}>
-  <h5 style={{ fontWeight: 700, color: '#000', marginBottom: 12, display: 'inline-block' }}>Upload Evidence <InfoIcon info="Upload supporting documents or images for this component. You can select files for each evidence category." /></h5>
-  <input
-    type="checkbox"
-    id="select-for-all-checkbox"
-    checked={selectForAll}
-    onChange={e => {
-      setSelectForAll(e.target.checked);
-      if (e.target.checked) {
-        // If any field has files, sync all to the first non-empty
-        const firstWithFiles = evidenceFiles.find(files => files.length > 0) || [];
-        setEvidenceFiles([firstWithFiles, firstWithFiles, firstWithFiles, firstWithFiles]);
-      }
-    }}
-    style={{ marginLeft: 16, verticalAlign: 'middle' }}
-  />
-  <label htmlFor="select-for-all-checkbox" style={{ marginLeft: 8, fontWeight: 500, color: '#000' }}>Select for All <InfoIcon info="Check this to use the same files for all evidence categories." /></label>
-  <div className="row g-3" style={{ marginTop: 8 }}>
-    {[1,2,3,4].map(idx => (
-      <div className="col-md-6" key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <label style={{ marginBottom: 0, minWidth: 160 }}>{`Evidence Category ${idx}`} <InfoIcon info={`Upload files for Evidence Category ${idx}.`} /></label>
-        <input
-          type="file"
-          className="form-control"
-          multiple
-          style={{ flex: 1 }}
-          value={undefined} // allow re-upload
-          onChange={e => {
-            const files = Array.from(e.target.files || []);
-            if (selectForAll) {
-              if (files.length === 0) {
-                setEvidenceFiles([[], [], [], []]);
-              } else {
-                setEvidenceFiles([files, files, files, files]);
-              }
-            } else {
-              const newFiles = [...evidenceFiles];
-              newFiles[idx-1] = files;
-              setEvidenceFiles(newFiles);
-            }
-          }}
-        />
-        {/* Show selected files */}
-        <div style={{ marginLeft: 8, flex: 1 }}>
-          {evidenceFiles[idx-1] && evidenceFiles[idx-1].length > 0 && (
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', fontSize: 12 }}>
-              {evidenceFiles[idx-1].map((file, i) => (
-                <li key={i}>{file.name}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
-              <div className="modal-footer" style={{ background: '#fff', borderTop: '2px solid #000', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ backgroundColor: 'rgb(48, 234, 3)', border: 'none', color: '#000', minWidth: 100, fontWeight: 600 }}
-                  onClick={handleAddComponentSave}
-                >
-                  Save
-                </button>
+
+        {/* Display Uploaded Files Table */}
+        {uploadedFiles.length > 0 && (
+          <div className="row" style={{ marginTop: '24px' }}>
+            <div className="col-12">
+              <div style={{ 
+                background: '#fff', 
+                borderRadius: '8px', 
+                border: '1px solid #e9ecef',
+                overflow: 'hidden',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+
+                
+                <div style={{ padding: '0 24px 24px 24px' }}>
+                  <div className="table-responsive" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    <table style={{ 
+                      width: '100%', 
+                      borderCollapse: 'collapse',
+                      backgroundColor: '#fff'
+                    }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#000' }}>
+                          <th style={{ 
+                            padding: '16px 20px', 
+                            fontSize: '14px', 
+                            fontWeight: '600',
+                            textAlign: 'left',
+                            borderBottom: '1px solid #e9ecef',
+                            color: '#fff'
+                          }}>
+                            Category
+                          </th>
+                          <th style={{ 
+                            padding: '16px 20px', 
+                            fontSize: '14px', 
+                            fontWeight: '600',
+                            textAlign: 'left',
+                            borderBottom: '1px solid #e9ecef',
+                            color: '#fff'
+                          }}>
+                            Files
+                          </th>
+                          <th style={{ 
+                            padding: '16px 20px', 
+                            fontSize: '14px', 
+                            fontWeight: '600',
+                            textAlign: 'center',
+                            borderBottom: '1px solid #e9ecef',
+                            width: '100px',
+                            color: '#fff'
+                          }}>
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uploadedFiles.map((upload, index) => (
+                          <tr key={upload.id} style={{ 
+                            backgroundColor: index % 2 === 0 ? '#fff' : '#f8f9fa',
+                            transition: 'background-color 0.2s ease'
+                          }}>
+                            <td style={{ 
+                              padding: '16px 20px', 
+                              fontSize: '14px',
+                              borderBottom: '1px solid #e9ecef',
+                              color: '#333'
+                            }}>
+                              {upload.categories.map(cat => `Category ${cat}`).join(', ')}
+                            </td>
+                            <td style={{ 
+                              padding: '16px 20px', 
+                              fontSize: '14px',
+                              borderBottom: '1px solid #e9ecef',
+                              color: '#333'
+                            }}>
+                              {upload.files.map(file => file.name).join(', ')}
+                            </td>
+                            <td style={{ 
+                              padding: '16px 20px', 
+                              textAlign: 'center',
+                              borderBottom: '1px solid #e9ecef'
+                            }}>
+                                                          <button
+                              type="button"
+                              style={{
+                                backgroundColor: '#dc3545',
+                                border: 'none',
+                                color: '#fff',
+                                padding: '8px 12px',
+                                fontSize: '13px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: '40px'
+                              }}
+                              onClick={() => {
+                                setUploadedFiles(prev => prev.filter(item => item.id !== upload.id));
+                              }}
+                              title="Delete"
+                            >
+                              <i className="ri-delete-bin-line" style={{ fontSize: '14px' }}></i>
+                            </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+              <div className="modal-footer" style={{ 
+                background: '#fff', 
+                borderTop: '2px solid #000', 
+                display: 'flex', 
+                justifyContent: 'flex-end',
+                padding: '20px 30px',
+                borderRadius: '0 0 12px 12px'
+              }}>
+                                  <button
+                    type="button"
+                    className="btn"
+                    style={{ 
+                      backgroundColor: 'rgb(48, 234, 3)', 
+                      border: 'none', 
+                      color: '#000', 
+                      minWidth: 120, 
+                      fontWeight: 600,
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onClick={handleAddComponentSave}
+                  >
+                    <i className="ri-save-line" style={{ fontSize: '16px' }} />
+                    Save
+                  </button>
               </div>
             </div>
           </div>
@@ -1695,6 +1954,33 @@ const CmSkuDetail: React.FC = () => {
         onConfirm={handleConfirmStatusChange}
         onCancel={handleCancelStatusChange}
       />
+
+      {/* Responsive styles for button layout */}
+      <style>{`
+        @media (max-width: 768px) {
+          .filters ul li[style*="marginLeft: auto"] {
+            margin-left: 0 !important;
+            margin-top: 10px !important;
+            width: 100% !important;
+            justify-content: center !important;
+          }
+          .filters ul li[style*="marginLeft: auto"] button {
+            min-width: 100px !important;
+            font-size: 0.9rem !important;
+            padding: 6px 12px !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .filters ul li[style*="marginLeft: auto"] {
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          .filters ul li[style*="marginLeft: auto"] button {
+            width: 100% !important;
+            min-width: auto !important;
+          }
+        }
+      `}</style>
     </Layout>
   );
 };

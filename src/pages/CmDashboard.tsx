@@ -65,6 +65,8 @@ const CmDashboard: React.FC = () => {
   const [signoffDetails, setSignoffDetails] = useState<SignoffDetail[]>([]);
   const [signoffLoading, setSignoffLoading] = useState(false);
   const [signoffError, setSignoffError] = useState<string | null>(null);
+  const [selectedSignoffPeriod, setSelectedSignoffPeriod] = useState<string>('');
+
   const [appliedFilters, setAppliedFilters] = useState<{
     cmCodes: string[];
     signoffStatuses: string[];
@@ -103,6 +105,8 @@ const CmDashboard: React.FC = () => {
         if (result.success) {
           console.log('CM Codes API Response:', result.data);
           console.log('Sample CM Code with periods:', result.data.find(item => item.periods));
+          console.log('Sample CM Code with signoff_status:', result.data.find(item => item.signoff_status));
+          console.log('All signoff_status values:', result.data.map(item => ({ cm_code: item.cm_code, signoff_status: item.signoff_status })));
           setCmCodes(result.data);
           
           // Extract unique signoff statuses for filter (if available)
@@ -111,7 +115,7 @@ const CmDashboard: React.FC = () => {
             setSignoffStatuses(uniqueStatuses);
           } else {
             // Fallback to default statuses if not available in API
-            setSignoffStatuses(['approved', 'pending', 'rejected']);
+            setSignoffStatuses(['signed', 'pending', 'rejected']);
           }
         } else {
           throw new Error('API returned unsuccessful response');
@@ -148,8 +152,38 @@ const CmDashboard: React.FC = () => {
         const result = await response.json();
         console.log('Periods API Response:', result);
         if (result.success && Array.isArray(result.years)) {
-          setPeriods(result.years);
-          console.log('Available periods:', result.years);
+          // Handle both string and object formats
+          const processedPeriods = result.years.map((item: any) => {
+            if (typeof item === 'string') {
+              return { id: item, period: item };
+            } else if (item && typeof item === 'object' && item.id && item.period) {
+              return { id: item.id, period: item.period };
+            } else {
+              return null;
+            }
+          }).filter(Boolean);
+          setPeriods(processedPeriods);
+          console.log('Available periods:', processedPeriods);
+          
+          // Set current period as default (most recent period)
+          if (processedPeriods.length > 0) {
+            // Sort periods to get the most recent one (assuming periods are in format like "2024", "2025", etc.)
+            const sortedPeriods = [...processedPeriods].sort((a, b) => {
+              const aYear = parseInt(a.period);
+              const bYear = parseInt(b.period);
+              return bYear - aYear; // Sort in descending order (most recent first)
+            });
+            
+            const currentPeriod = sortedPeriods[0];
+            console.log('Setting current period as default:', currentPeriod);
+            setSelectedPeriod(currentPeriod.id.toString());
+            
+            // Apply the current period filter automatically
+            setAppliedFilters(prev => ({
+              ...prev,
+              period: currentPeriod.id.toString()
+            }));
+          }
         } else {
           setPeriods([]);
         }
@@ -161,15 +195,39 @@ const CmDashboard: React.FC = () => {
     fetchPeriods();
   }, []);
 
+  // Set current period as default and apply filter when periods are loaded
+  useEffect(() => {
+    if (periods.length > 0 && !selectedPeriod) {
+      // If periods are loaded but no period is selected, set the current period
+      const sortedPeriods = [...periods].sort((a, b) => {
+        const aYear = parseInt(a.period);
+        const bYear = parseInt(b.period);
+        return bYear - aYear; // Sort in descending order (most recent first)
+      });
+      
+      if (sortedPeriods.length > 0) {
+        const currentPeriod = sortedPeriods[0];
+        console.log('Setting current period as default and applying filter:', currentPeriod);
+        setSelectedPeriod(currentPeriod.id.toString());
+        
+        // Apply current period filter by default
+        setAppliedFilters(prev => ({
+          ...prev,
+          period: currentPeriod.id.toString()
+        }));
+      }
+    }
+  }, [periods, selectedPeriod]);
+
   // Handle search and reset
   const handleSearch = () => {
-    console.log('Search with filters:', {
+    console.log('Applying additional filters:', {
       cmCodes: selectedCmCodes,
       signoffStatuses: selectedSignoffStatuses,
       period: selectedPeriod
     });
     
-    // Apply the selected filters
+    // Apply the selected filters (including current period)
     setAppliedFilters({
       cmCodes: selectedCmCodes,
       signoffStatuses: selectedSignoffStatuses,
@@ -193,11 +251,27 @@ const CmDashboard: React.FC = () => {
   };
 
   const handleReset = () => {
-    // Clear all filters
+    // Clear all filters except period
     setSelectedCmCodes([]);
     setSelectedSignoffStatuses([]);
-    setSelectedPeriod('');
-    setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: '' });
+    
+    // Set current period as default and apply it as filter
+    if (periods.length > 0) {
+      const sortedPeriods = [...periods].sort((a, b) => {
+        const aYear = parseInt(a.period);
+        const bYear = parseInt(b.period);
+        return bYear - aYear; // Sort in descending order (most recent first)
+      });
+      const currentPeriod = sortedPeriods[0];
+      setSelectedPeriod(currentPeriod.id.toString());
+      
+      // Apply current period filter
+      setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: currentPeriod.id.toString() });
+    } else {
+      setSelectedPeriod('');
+      setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: '' });
+    }
+    
     setCurrentPage(1);
     
     // Refresh data from API
@@ -225,7 +299,7 @@ const CmDashboard: React.FC = () => {
             setSignoffStatuses(uniqueStatuses);
           } else {
             // Fallback to default statuses if not available in API
-            setSignoffStatuses(['approved', 'pending', 'rejected']);
+            setSignoffStatuses(['signed', 'pending', 'rejected']);
           }
         } else {
           throw new Error('API returned unsuccessful response');
@@ -309,8 +383,8 @@ const CmDashboard: React.FC = () => {
     const exportData = currentData.map(row => ({
       '3PM Code': row.cm_code,
       '3PM Description': row.cm_description,
-      'Signoff Status': row.signoff_status === 'approved'
-        ? 'Approved'
+      'Signoff Status': row.signoff_status === 'signed'
+        ? 'Signed'
         : row.signoff_status === 'rejected'
         ? 'Rejected'
         : row.signoff_status === 'pending'
@@ -335,9 +409,38 @@ const CmDashboard: React.FC = () => {
     setSignoffLoading(true);
     setSignoffError(null);
     setSignoffDetails([]);
+    setSelectedSignoffPeriod('');
 
+    // Use the selected period from dashboard filter, or current period if none selected
+    let periodToUse = selectedPeriod;
+    if (!periodToUse && periods.length > 0) {
+      const sortedPeriods = [...periods].sort((a, b) => {
+        const aYear = parseInt(a.period);
+        const bYear = parseInt(b.period);
+        return bYear - aYear; // Sort in descending order (most recent first)
+      });
+      periodToUse = sortedPeriods[0].id.toString();
+      console.log('No period selected, using current period for signoff details:', periodToUse);
+    } else {
+      console.log('Using selected period from dashboard filter for signoff details:', periodToUse);
+    }
+
+    // Fetch signoff details with the appropriate period
+    await fetchSignoffDetails(cmCode, periodToUse);
+  };
+
+  // Function to fetch signoff details with period filter
+  const fetchSignoffDetails = async (cmCode: string, period?: string) => {
     try {
-      const response = await fetch(`http://localhost:3000/signoff-details/${cmCode}`, {
+      setSignoffLoading(true);
+      setSignoffError(null);
+      
+      let url = `http://localhost:3000/signoff-details-by-cm-period?cm_code=${encodeURIComponent(cmCode)}`;
+      if (period) {
+        url += `&period=${encodeURIComponent(period)}`;
+      }
+
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -348,9 +451,9 @@ const CmDashboard: React.FC = () => {
       }
 
       const result: SignoffApiResponse = await response.json();
-      console.log('API Response:', result);
+      console.log('Signoff Details API Response:', result);
+      
       if (result.success) {
-        // Handle the nested data structure - store all records
         if (result.data && Array.isArray(result.data)) {
           setSignoffDetails(result.data);
         } else {
@@ -374,6 +477,11 @@ const CmDashboard: React.FC = () => {
     setSignoffDetails([]);
     setSignoffError(null);
   };
+
+
+
+  // Filter signoff details - since we're using one API, we just show the data as returned
+  const filteredSignoffDetails = signoffDetails;
 
   return (
     <Layout>
@@ -448,6 +556,7 @@ const CmDashboard: React.FC = () => {
                   </select>
                   {loading && <small style={{color: '#666'}}>Loading periods...</small>}
                   {error && <small style={{color: 'red'}}>Error: {error}</small>}
+
                 </li>
                 <li>
                   <button 
@@ -455,7 +564,7 @@ const CmDashboard: React.FC = () => {
                     onClick={handleSearch}
                     disabled={loading}
                   >
-                    <span>Search</span>
+                    <span>Apply Filters</span>
                     <i className="ri-search-line"></i>
                   </button>
                 </li>
@@ -490,6 +599,8 @@ const CmDashboard: React.FC = () => {
           </button>
         </div>
         <div className="table-responsive tableCommon">
+
+          
           {loading ? (
             <div style={{ textAlign: 'center', padding: '20px' }}>
               <i className="ri-loader-4-line spinning" style={{ fontSize: '24px', color: '#666' }}></i>
@@ -526,7 +637,7 @@ const CmDashboard: React.FC = () => {
                       <td>{row.cm_description}</td>
                       <td
                         className={
-                          row.signoff_status === 'approved'
+                          row.signoff_status === 'signed'
                             ? 'status-cell approved'
                             : row.signoff_status === 'rejected'
                             ? 'status-cell rejected'
@@ -535,19 +646,22 @@ const CmDashboard: React.FC = () => {
                             : ''
                         }
                       >
-                        {row.signoff_status === 'approved'
-                          ? 'Approved'
-                          : row.signoff_status === 'rejected'
-                          ? 'Rejected'
-                          : row.signoff_status === 'pending'
-                          ? 'Pending'
-                          : ''}
+                        {(() => {
+                          console.log('Row signoff_status:', row.signoff_status, 'Type:', typeof row.signoff_status);
+                          return row.signoff_status === 'signed'
+                            ? 'Signed'
+                            : row.signoff_status === 'rejected'
+                            ? 'Rejected'
+                            : row.signoff_status === 'pending'
+                            ? 'Pending'
+                            : row.signoff_status || 'No Status';
+                        })()}
                       </td>
                       <td>
-                        {row.signoff_status === 'approved' ? row.signoff_by : '-'}
+                        {row.signoff_status === 'signed' ? row.signoff_by : '-'}
                       </td>
                       <td>
-                        {row.signoff_status === 'approved' ? row.signoff_date : '-'}
+                        {row.signoff_status === 'signed' ? row.signoff_date : '-'}
                       </td>
                       <td style={{ padding: '8px 4px', width: '60px', textAlign: 'center', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
@@ -650,7 +764,7 @@ const CmDashboard: React.FC = () => {
           justifyContent: 'center'
         }}>
           <div style={{
-            background: '#fff',
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
             width: '80%',
             maxWidth: '1200px',
             height: '95vh',
@@ -658,7 +772,8 @@ const CmDashboard: React.FC = () => {
             overflowY: 'auto',
             boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
             borderRadius: '12px',
-            position: 'relative'
+            position: 'relative',
+            border: '2px solid #e9ecef'
           }}>
             {/* Close Button */}
             <button
@@ -696,92 +811,32 @@ const CmDashboard: React.FC = () => {
             <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#333', paddingRight: '50px' }}>
               Signoff Details for {selectedCmCode}
             </h2>
+            
             {signoffLoading && <Loader />}
             {signoffError && <p style={{ color: 'red' }}>{signoffError}</p>}
-            {signoffDetails.length > 0 && (
+            {filteredSignoffDetails.length > 0 && (
               <div>
                 <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
                   marginBottom: '24px',
                   paddingBottom: '16px',
                   borderBottom: '2px solid #e9ecef'
                 }}>
                   <h3 style={{ margin: 0, color: '#333', fontSize: '18px', fontWeight: '600' }}>
-                    Signoff Records ({signoffDetails.length})
+                    Signoff Records
                   </h3>
-                  <div style={{ 
-                    background: '#30ea03', 
-                    color: '#000', 
-                    padding: '4px 12px', 
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: '600'
-                  }}>
-                    {signoffDetails.length} {signoffDetails.length === 1 ? 'Record' : 'Records'}
-                  </div>
                 </div>
                 
-                {signoffDetails.map((record, index) => (
+                {filteredSignoffDetails.map((record, index) => (
                   <div key={index} style={{ 
                     background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
                     border: '1px solid #e9ecef',
                     borderRadius: '6px',
-                    padding: '6px',
-                    marginBottom: '4px',
+                    padding: '12px',
+                    marginBottom: '8px',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                     position: 'relative',
                     overflow: 'hidden'
                   }}>
-                    {/* Record Header */}
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '4px',
-                      paddingBottom: '4px',
-                      borderBottom: '1px solid #e9ecef'
-                    }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                      }}>
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #30ea03 0%, #28a745 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#000',
-                          fontWeight: 'bold',
-                          fontSize: '10px'
-                        }}>
-                          {index + 1}
-                        </div>
-                        <span style={{
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          color: '#333'
-                        }}>
-                          Record {index + 1}
-                        </span>
-                      </div>
-                      <div style={{
-                        padding: '6px 16px',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        background: record.signoff_status === 'Approved' ? '#d4edda' : '#f8d7da',
-                        color: record.signoff_status === 'Approved' ? '#155724' : '#721c24'
-                      }}>
-                        {record.signoff_status}
-                      </div>
-                    </div>
-
                     {/* Key Fields in Row */}
                     <div style={{
                       display: 'grid',
@@ -854,7 +909,7 @@ const CmDashboard: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Created Date */}
+                      {/* Period */}
                       <div style={{
                         background: '#ffffff',
                         padding: '6px',
@@ -870,17 +925,24 @@ const CmDashboard: React.FC = () => {
                         }}>
                           <i className="ri-calendar-line" style={{ color: '#30ea03', fontSize: '12px' }}></i>
                           <span style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', textTransform: 'uppercase' }}>
-                            Created Date
+                            Period
                           </span>
                         </div>
                         <div style={{ fontSize: '12px', fontWeight: '500', color: '#333' }}>
-                          {record.created_at ? new Date(record.created_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : 'N/A'}
+                          {record.period ? (
+                            (() => {
+                              // Convert period ID to readable format
+                              const periodId = record.period;
+                              const periodMap: { [key: string]: string } = {
+                                '1': 'July 2024 to June 2025',
+                                '2': 'July 2025 to June 2026',
+                                '3': 'July 2026 to June 2027',
+                                '4': 'July 2027 to June 2028',
+                                '5': 'July 2028 to June 2029'
+                              };
+                              return periodMap[periodId] || `Period ${periodId}`;
+                            })()
+                          ) : 'N/A'}
                         </div>
                       </div>
                     </div>
