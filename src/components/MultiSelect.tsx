@@ -42,8 +42,10 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
 
   // Filter options based on search term
   const filteredOptions = options.filter(option =>
-    option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    option.value.toLowerCase().includes(searchTerm.toLowerCase())
+    option.label && typeof option.label === 'string' && 
+    option.value && typeof option.value === 'string' &&
+    (option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    option.value.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Handle individual option selection

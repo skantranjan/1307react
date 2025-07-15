@@ -197,9 +197,37 @@ const CmSkuDetail: React.FC = () => {
         const response = await fetch('http://localhost:3000/sku-details-active-years');
         if (!response.ok) throw new Error('Failed to fetch years');
         const result = await response.json();
-        // Assume result is an array of years or { years: [...] }
-        setYears(Array.isArray(result) ? result : result.years || []);
+        console.log('Years API response:', result); // Debug log
+        
+        // Handle different response formats
+        let yearsData: any[] = [];
+        if (Array.isArray(result)) {
+          yearsData = result;
+        } else if (result.years && Array.isArray(result.years)) {
+          yearsData = result.years;
+        } else if (result.data && Array.isArray(result.data)) {
+          yearsData = result.data;
+        }
+        
+        // Extract period values from objects or convert to strings
+        const yearsAsStrings = yearsData
+          .map((year: any) => {
+            if (typeof year === 'string' || typeof year === 'number') {
+              return String(year);
+            } else if (year && typeof year === 'object' && year.period) {
+              return String(year.period);
+            } else if (year && typeof year === 'object' && year.id) {
+              return String(year.id);
+            } else {
+              return null;
+            }
+          })
+          .filter((year: string | null) => year && year.trim() !== '') as string[];
+        
+        console.log('Processed years:', yearsAsStrings); // Debug log
+        setYears(yearsAsStrings);
       } catch (err) {
+        console.error('Error fetching years:', err);
         setYears([]);
       }
     };
@@ -216,7 +244,10 @@ const CmSkuDetail: React.FC = () => {
         const response = await fetch('http://localhost:3000/sku-descriptions');
         if (!response.ok) throw new Error('Failed to fetch descriptions');
         const result = await response.json();
-        setSkuDescriptions(result.descriptions || []);
+        const descriptionsData = result.descriptions || [];
+        // Convert all descriptions to strings to ensure compatibility
+        const descriptionsAsStrings = descriptionsData.map((desc: any) => String(desc)).filter((desc: string) => desc && desc.trim() !== '');
+        setSkuDescriptions(descriptionsAsStrings);
       } catch (err) {
         setSkuDescriptions([]);
       }
@@ -911,19 +942,31 @@ const CmSkuDetail: React.FC = () => {
               <ul>
                 <li>
                   <div className="fBold">Years</div>
-                  <MultiSelect
-                    options={years.map(y => ({ value: y, label: y }))}
-                    selectedValues={selectedYears}
-                    onSelectionChange={setSelectedYears}
-                    placeholder="Select Years..."
+                  <select
+                    value={selectedYears.length > 0 ? selectedYears[0] : ''}
+                    onChange={(e) => setSelectedYears(e.target.value ? [e.target.value] : [])}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff'
+                    }}
                     disabled={years.length === 0}
-                    loading={years.length === 0}
-                  />
+                  >
+                    <option value="">Select Year</option>
+                    {years.filter(y => y && typeof y === 'string' && y.trim() !== '').map((year, index) => (
+                      <option key={index} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
                 </li>
                 <li>
                   <div className="fBold">SKU Code-Description</div>
                   <MultiSelect
-                    options={skuDescriptions.map(desc => ({ value: desc, label: desc }))}
+                    options={skuDescriptions.filter(desc => desc && typeof desc === 'string' && desc.trim() !== '').map(desc => ({ value: desc, label: desc }))}
                     selectedValues={selectedSkuDescriptions}
                     onSelectionChange={setSelectedSkuDescriptions}
                     placeholder="Select SKU Code-Description..."

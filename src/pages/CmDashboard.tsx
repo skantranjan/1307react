@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import MultiSelect from '../components/MultiSelect';
 import Pagination from '../components/Pagination';
 import * as XLSX from 'xlsx';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Loader from '../components/Loader';
 import { useMsal } from '@azure/msal-react';
 
@@ -72,6 +72,7 @@ const CmDashboard: React.FC = () => {
   }>({ cmCodes: [], signoffStatuses: [], period: '' });
 
   const { instance, accounts } = useMsal();
+  const navigate = useNavigate();
 
   // Fetch CM codes from API
   useEffect(() => {
@@ -576,27 +577,38 @@ const CmDashboard: React.FC = () => {
                       </td>
                       <td>
                         <div className="action-btns">
-                          <Link
-                            to={`/cm/${row.cm_code}`}
-                            state={{ cmDescription: row.cm_description, status: row.signoff_status }}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: '#000',
-                              color: '#fff',
-                              borderRadius: 6,
-                              width: 36,
-                              height: 36,
-                              fontSize: 20,
-                              border: 'none',
-                              boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                              cursor: 'pointer',
+                          <button
+                            onClick={() => {
+                              console.log('Eye icon clicked for CM Code:', row.cm_code);
+                              console.log('Navigating to:', `/cm/${row.cm_code}`);
+                              // Use proper React Router navigation
+                              navigate(`/cm/${row.cm_code}`, { 
+                                state: { 
+                                  cmDescription: row.cm_description, 
+                                  status: row.signoff_status 
+                                } 
+                              });
                             }}
-                            tabIndex={0}
+                            style={{
+                              display: 'inline-flex !important',
+                              alignItems: 'center !important',
+                              justifyContent: 'center !important',
+                              background: '#000 !important',
+                              color: '#fff !important',
+                              borderRadius: '6px !important',
+                              width: '36px !important',
+                              height: '36px !important',
+                              fontSize: '20px !important',
+                              border: 'none !important',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.08) !important',
+                              cursor: 'pointer !important',
+                              margin: '0 !important',
+                              textDecoration: 'none !important',
+                            }}
+                            title="View SKU Details"
                           >
                             <i className="ri-eye-line"></i>
-                          </Link>
+                          </button>
                         </div>
                       </td>
                     </tr>
