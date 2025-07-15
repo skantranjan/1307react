@@ -508,8 +508,8 @@ const CmDashboard: React.FC = () => {
                   <th>Signoff Status</th>
                   <th>Signoff By/Rejected By</th>
                   <th>Signoff Date/ Rejected Date</th>
-                  <th>Document</th>
-                  <th>Add/View SKU</th>
+                  <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center' }}>Document</th>
+                  <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px' }}>Add/View SKU</th>
                 </tr>
               </thead>
               <tbody>
@@ -549,25 +549,27 @@ const CmDashboard: React.FC = () => {
                       <td>
                         {row.signoff_status === 'approved' ? row.signoff_date : '-'}
                       </td>
-                      <td>
-                        <div className="action-btns">
+                      <td style={{ padding: '8px 4px', width: '60px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
                           <button
                             type="button"
                             onClick={() => handleFileIconClick(row.cm_code)}
                             style={{
-                              display: 'inline-flex',
+                              display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               background: '#000',
                               color: '#fff',
-                              borderRadius: 6,
-                              width: 36,
-                              height: 36,
-                              fontSize: 18,
+                              borderRadius: 4,
+                              width: 28,
+                              height: 28,
+                              fontSize: 14,
                               border: 'none',
-                              boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                               cursor: 'pointer',
-                              textDecoration: 'none'
+                              textDecoration: 'none',
+                              margin: 0,
+                              padding: 0
                             }}
                             title="View Document Details"
                           >
@@ -575,8 +577,8 @@ const CmDashboard: React.FC = () => {
                           </button>
                         </div>
                       </td>
-                      <td>
-                        <div className="action-btns">
+                      <td style={{ padding: '8px 4px', width: '60px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
                           <button
                             onClick={() => {
                               console.log('Eye icon clicked for CM Code:', row.cm_code);
@@ -590,20 +592,21 @@ const CmDashboard: React.FC = () => {
                               });
                             }}
                             style={{
-                              display: 'inline-flex !important',
-                              alignItems: 'center !important',
-                              justifyContent: 'center !important',
-                              background: '#000 !important',
-                              color: '#fff !important',
-                              borderRadius: '6px !important',
-                              width: '36px !important',
-                              height: '36px !important',
-                              fontSize: '20px !important',
-                              border: 'none !important',
-                              boxShadow: '0 1px 4px rgba(0,0,0,0.08) !important',
-                              cursor: 'pointer !important',
-                              margin: '0 !important',
-                              textDecoration: 'none !important',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: '#000',
+                              color: '#fff',
+                              borderRadius: 4,
+                              width: 28,
+                              height: 28,
+                              fontSize: 14,
+                              border: 'none',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              cursor: 'pointer',
+                              textDecoration: 'none',
+                              margin: 0,
+                              padding: 0
                             }}
                             title="View SKU Details"
                           >

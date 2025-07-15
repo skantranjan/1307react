@@ -105,6 +105,8 @@ const CmSkuDetail: React.FC = () => {
   const [skuData, setSkuData] = useState<SkuData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [pageLoadStartTime, setPageLoadStartTime] = useState<number>(Date.now());
+  const [minimumLoaderComplete, setMinimumLoaderComplete] = useState<boolean>(false);
 
   // Modal state
   const [showComponentModal, setShowComponentModal] = useState(false);
@@ -183,9 +185,20 @@ const CmSkuDetail: React.FC = () => {
 
   // Fetch SKU details from API
   useEffect(() => {
+    setPageLoadStartTime(Date.now());
+    setMinimumLoaderComplete(false);
     fetchSkuDetails();
     // eslint-disable-next-line
   }, [cmCode]);
+
+  // Minimum 2 second loader
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinimumLoaderComplete(true);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [pageLoadStartTime]);
 
   // Fetch years from API
   const [years, setYears] = useState<string[]>([]);
@@ -866,8 +879,8 @@ const CmSkuDetail: React.FC = () => {
 
   return (
     <Layout>
-      {loading && <Loader />}
-      <div className="mainInternalPages" style={{ opacity: loading ? 0.5 : 1 }}>
+      {(loading || !minimumLoaderComplete) && <Loader />}
+      <div className="mainInternalPages" style={{ display: (loading || !minimumLoaderComplete) ? 'none' : 'block' }}>
         <div style={{ marginBottom: 8 }}>
           <button
             onClick={() => navigate(-1)}
@@ -1007,12 +1020,7 @@ const CmSkuDetail: React.FC = () => {
           </div>
         </div>
         
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <i className="ri-loader-4-line spinning" style={{ fontSize: '24px', color: '#666' }}></i>
-            <p>Loading SKU details...</p>
-          </div>
-        ) : error ? (
+        {error ? (
           <div style={{ textAlign: 'center', padding: '20px', color: 'red' }}>
             <p>Error loading SKU details: {error}</p>
           </div>
