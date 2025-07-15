@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import MultiSelect from '../components/MultiSelect';
 import ConfirmModal from '../components/ConfirmModal';
@@ -151,6 +151,7 @@ const componentFieldValues: { [key: string]: string } = {
 
 const SedForApproval: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
@@ -164,17 +165,83 @@ const SedForApproval: React.FC = () => {
   const cmCode = searchParams.get('cmCode') || '';
   const cmDescription = searchParams.get('cmDescription') || '';
 
-  // Fetch years from API (same as CmSkuDetail)
+  // Fetch years from API
   useEffect(() => {
     const fetchYears = async () => {
       try {
-        const response = await fetch('http://localhost:3000/sku-details-active-years');
-        if (!response.ok) throw new Error('Failed to fetch years');
+        console.log('Fetching years for SendForApproval...');
+        
+        // Try the primary endpoint first
+        let response = await fetch('http://localhost:3000/sku-details-active-years');
+        console.log('Primary Years API response status:', response.status);
+        
+        if (!response.ok) {
+          // Try alternative endpoint
+          console.log('Primary endpoint failed, trying alternative...');
+          response = await fetch('http://localhost:3000/component-years');
+          console.log('Alternative Years API response status:', response.status);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch years from both endpoints: ${response.status}`);
+          }
+        }
+        
         const result = await response.json();
-        // Assume result is an array of years or { years: [...] }
-        setYears(Array.isArray(result) ? result : result.years || []);
+        console.log('Years API result:', result);
+        
+        // Handle different response formats
+        let yearsData = [];
+        if (Array.isArray(result)) {
+          yearsData = result;
+        } else if (result && Array.isArray(result.years)) {
+          yearsData = result.years;
+        } else if (result && result.data && Array.isArray(result.data)) {
+          yearsData = result.data;
+        } else if (result && result.success && result.data) {
+          yearsData = Array.isArray(result.data) ? result.data : [];
+        }
+        
+        // Extract years from the data - handle both string and object formats
+        const extractedYears = yearsData.map((item: any) => {
+          if (typeof item === 'string') {
+            return item;
+          } else if (item && typeof item === 'object') {
+            // Handle object format with period field
+            if (item.period) {
+              return item.period;
+            } else if (item.year) {
+              return item.year;
+            } else if (item.id) {
+              return item.id.toString();
+            }
+          }
+          return null;
+        }).filter((y: any) => y && typeof y === 'string' && y.trim() !== '');
+        
+        // Sort years (assuming they contain year information)
+        const cleanedYears = extractedYears
+          .map((y: any) => y.toString().trim())
+          .sort((a: string, b: string) => {
+            // Extract year numbers for proper sorting
+            const yearA = a.match(/\d{4}/);
+            const yearB = b.match(/\d{4}/);
+            if (yearA && yearB) {
+              return parseInt(yearB[0]) - parseInt(yearA[0]); // Descending order
+            }
+            return b.localeCompare(a); // Fallback to string comparison
+          });
+        
+        console.log('Cleaned years:', cleanedYears);
+        setYears(cleanedYears);
+        
+        if (cleanedYears.length === 0) {
+          console.warn('No years found in API response');
+          setError('No years available in the system.');
+        }
       } catch (err) {
+        console.error('Error fetching years:', err);
         setYears([]);
+        setError('Failed to load years. Please check your connection and try again.');
       }
     };
     fetchYears();
@@ -194,7 +261,15 @@ const SedForApproval: React.FC = () => {
       try {
         // Use the first selected year for the API call
         const selectedYear = selectedYears[0];
-        const response = await fetch(`http://localhost:3000/component-details-by-year-cm?year=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
+        console.log('Fetching component details for year:', selectedYear, 'and cm_code:', cmCode);
+        
+        // Try different API endpoints for component details
+        let response = await fetch(`http://localhost:3000/component-details-by-year-cm?year=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
+        
+        if (!response.ok) {
+          // Try alternative endpoint format
+          response = await fetch(`http://localhost:3000/component-details?period=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
+        }
         
         if (!response.ok) {
           throw new Error(`Failed to fetch data: ${response.status}`);
@@ -202,8 +277,18 @@ const SedForApproval: React.FC = () => {
 
         const data = await response.json();
         console.log('API Response Data:', data);
+        console.log('Response success:', data.success);
+        console.log('Response count:', data.count);
+        console.log('Response data length:', data.data ? data.data.length : 0);
         console.log('First row fields:', data.data && data.data.length > 0 ? Object.keys(data.data[0]) : 'No data');
-        setTableData(Array.isArray(data.data) ? data.data : []);
+        
+        if (data.success && data.data && Array.isArray(data.data)) {
+          setTableData(data.data);
+          console.log('Table data set successfully:', data.data.length, 'rows');
+        } else {
+          console.warn('No valid data in response');
+          setTableData([]);
+        }
       } catch (err) {
         console.error('Error fetching component details:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -309,96 +394,142 @@ const SedForApproval: React.FC = () => {
 
   return (
     <Layout>
-      <div className="mainInternalPages" style={{ padding: 40, maxWidth: 1200, margin: '0 auto' }}>
-        <h1 style={{ color: '#30ea03', marginBottom: 24, fontSize: '2rem', textAlign: 'center' }}>Send For Approval</h1>
+      <div className="mainInternalPages">
+        <div style={{ marginBottom: 8 }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#000',
+              fontSize: 22,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              marginRight: 12
+            }}
+          >
+            <i className="ri-arrow-left-line" style={{ fontSize: 24, marginRight: 4 }} />
+            Back
+          </button>
+        </div>
+        <div className="commonTitle">
+          <div className="icon">
+            <i className="ri-send-plane-2-fill"></i>
+          </div>
+          <h1>Generate PDF</h1>
+        </div>
         
-        {/* Display 3PM Code and Description */}
-        {(cmCode || cmDescription) && (
-          <div style={{ 
-            background: '#f8f9fa', 
-            padding: '16px 20px', 
-            borderRadius: '8px', 
-            marginBottom: '24px',
-            border: '1px solid #e9ecef',
-            fontSize: '1rem',
-            wordBreak: 'break-word'
-          }}>
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center' }}>
-              {cmCode && (
-                <div>
-                  <strong style={{ color: '#495057' }}>3PM Code:</strong>
-                  <span style={{ marginLeft: '8px', color: '#30ea03', fontWeight: '600' }}>{cmCode}</span>
-                </div>
-              )}
-              {cmDescription && (
-                <div>
-                  <strong style={{ color: '#495057' }}>3PM Description:</strong>
-                  <span style={{ marginLeft: '8px', color: '#30ea03', fontWeight: '600' }}>{cmDescription}</span>
-                </div>
-              )}
+        <div className="filters CMDetails">
+          <div className="row">
+            <div className="col-sm-12 ">
+              <ul style={{ display: 'flex', alignItems: 'center' }}>
+                <li><strong>3PM Code: </strong> {cmCode}</li>
+                <li> | </li>
+                <li><strong>3PM Description: </strong> {cmDescription}</li>
+              </ul>
             </div>
-          </div>
-        )}
-
-        {/* Filters */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 24,
-            marginBottom: 24,
-            flexWrap: 'wrap',
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            justifyContent: 'flex-start',
-          }}
-        >
-          <div style={{ minWidth: 200, flex: 1 }}>
-            <label style={{ fontWeight: 600 }}>Years</label><br />
-            <MultiSelect
-              options={years.map(y => ({ value: y, label: y }))}
-              selectedValues={selectedYears}
-              onSelectionChange={setSelectedYears}
-              placeholder="Select Years..."
-              disabled={years.length === 0}
-              loading={years.length === 0}
-            />
-          </div>
-          <div style={{ minWidth: 200, flex: 1 }}>
-            <label style={{ fontWeight: 600 }}>Component Fields</label><br />
-            <MultiSelect
-              options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
-              selectedValues={selectedFields}
-              onSelectionChange={setSelectedFields}
-              placeholder="Select Component Fields..."
-              disabled={componentFields.length === 0}
-              loading={false}
-            />
           </div>
         </div>
 
-        {/* Loading and Error States */}
+        <div className="row">
+          <div className="col-sm-12">
+            <div className="filters">
+              <ul>
+                <li>
+                  <div className="fBold">Years</div>
+                  <select
+                    value={selectedYears.length > 0 ? selectedYears[0] : ''}
+                    onChange={(e) => {
+                      console.log('Year selected:', e.target.value);
+                      console.log('Available years:', years);
+                      setSelectedYears(e.target.value ? [e.target.value] : []);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff'
+                    }}
+                    disabled={years.length === 0}
+                  >
+                    <option value="">Select Year</option>
+                    {years.length === 0 ? (
+                      <option value="" disabled>Loading years...</option>
+                    ) : (
+                      years.filter(y => y && typeof y === 'string' && y.trim() !== '').map((year, index) => (
+                        <option key={index} value={year}>
+                          {year}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {years.length === 0 && (
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                      No years available. Please check the API connection.
+                    </div>
+                  )}
+                  {years.length > 0 && (
+                    <div style={{ fontSize: '12px', color: '#30ea03', marginTop: '4px' }}>
+                      {years.length} years loaded successfully
+                    </div>
+                  )}
+                </li>
+                <li>
+                  <div className="fBold">Component Fields</div>
+                  <MultiSelect
+                    options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
+                    selectedValues={selectedFields}
+                    onSelectionChange={setSelectedFields}
+                    placeholder="Select Component Fields..."
+                    disabled={componentFields.length === 0}
+                    loading={false}
+                  />
+                </li>
+                <li>
+                  <button className="btnCommon btnGreen filterButtons" onClick={() => {}} disabled={loading}>
+                    <span>Search</span>
+                    <i className="ri-search-line"></i>
+                  </button>
+                </li>
+                <li>
+                  <button className="btnCommon btnBlack filterButtons" onClick={() => {setSelectedYears([]); setSelectedFields([]);}} disabled={loading}>
+                    <span>Reset</span>
+                    <i className="ri-refresh-line"></i>
+                  </button>
+                </li>
+                <li style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                  <button
+                    className="btnCommon btnGreen"
+                    style={{ minWidth: 120 }}
+                    onClick={handleGeneratePDF}
+                    disabled={selectedRows.length === 0}
+                  >
+                    Generate PDF <i className="ri-file-pdf-2-line"></i>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {loading && (
           <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-            Loading component details...
+            <i className="ri-loader-4-line spinning" style={{ fontSize: '24px', color: '#666' }}></i>
+            <p>Loading component details...</p>
           </div>
         )}
 
         {error && (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '20px', 
-            color: '#dc3545', 
-            background: '#f8d7da', 
-            borderRadius: '8px',
-            marginBottom: '24px'
-          }}>
-            Error: {error}
+          <div style={{ textAlign: 'center', padding: '20px', color: 'red' }}>
+            <p>Error loading component details: {error}</p>
           </div>
         )}
 
-        {/* Data Table */}
-        <div style={{ width: '100%', overflowX: 'auto', marginBottom: 24 }}>
-          {selectedYears.length > 0 && selectedFields.length > 0 && tableData.length > 0 && (
+        {selectedYears.length > 0 && selectedFields.length > 0 && tableData.length > 0 ? (
+          <div style={{ width: '100%', overflowX: 'auto' }}>
             <table style={{ minWidth: 600, width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden', fontSize: '0.95rem' }}>
               <thead style={{ background: '#30ea03' }}>
                 <tr>
@@ -448,29 +579,16 @@ const SedForApproval: React.FC = () => {
                 )}
               </tbody>
             </table>
-          )}
-          {/* Generate PDF Button */}
-          {selectedYears.length > 0 && selectedFields.length > 0 && tableData.length > 0 && (
-            <div style={{ marginTop: 24, textAlign: 'right' }}>
-              <button
-                style={{
-                  background: '#30ea03',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 6,
-                  padding: '10px 24px',
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(48,234,3,0.08)'
-                }}
-                onClick={handleGeneratePDF}
-              >
-                Generate PDF
-              </button>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : selectedYears.length === 0 && selectedFields.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <p>Please select a year and component fields to view data</p>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <p>No component data available for the selected criteria</p>
+          </div>
+        )}
       </div>
 
       {/* No Data Selected Modal */}

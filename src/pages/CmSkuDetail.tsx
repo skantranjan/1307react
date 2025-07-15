@@ -937,8 +937,7 @@ const CmSkuDetail: React.FC = () => {
                     className="btnCommon btnGreen"
                     style={{ minWidth: 180, fontWeight: 600 }}
                     onClick={() => {
-                      const url = `/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`;
-                      window.open(url, '_blank');
+                      navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
                     }}
                   >
                     Send For Approval <i className="ri-send-plane-2-line"></i>
