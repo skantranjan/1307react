@@ -149,9 +149,64 @@ const CmSkuDetail: React.FC = () => {
 
   // Reset button handler
   const handleReset = () => {
-    setSelectedYears([]);
+    // Reset to current period instead of clearing
+    const getCurrentPeriod = () => {
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1; // 1-12
+      const currentYear = now.getFullYear();
+      
+      // Find the period that contains the current date
+      for (const yearOption of years) {
+        const periodText = yearOption.period;
+        
+        // Try to parse period text like "July 2025 to June 2026"
+        const periodMatch = periodText.match(/(\w+)\s+(\d{4})\s+to\s+(\w+)\s+(\d{4})/i);
+        if (periodMatch) {
+          const startMonth = periodMatch[1];
+          const startYear = parseInt(periodMatch[2]);
+          const endMonth = periodMatch[3];
+          const endYear = parseInt(periodMatch[4]);
+          
+          // Convert month names to numbers
+          const monthNames: { [key: string]: number } = {
+            'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+            'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+          };
+          
+          const startMonthNum = monthNames[startMonth.toLowerCase()];
+          const endMonthNum = monthNames[endMonth.toLowerCase()];
+          
+          if (startMonthNum && endMonthNum) {
+            // Check if current date falls within this period
+            const currentDate = new Date(currentYear, currentMonth - 1, 1);
+            const periodStart = new Date(startYear, startMonthNum - 1, 1);
+            const periodEnd = new Date(endYear, endMonthNum, 0); // Last day of end month
+            
+            if (currentDate >= periodStart && currentDate <= periodEnd) {
+              return yearOption;
+            }
+          }
+        }
+        
+        // Fallback: check if period contains current year
+        if (periodText.includes(currentYear.toString())) {
+          return yearOption;
+        }
+      }
+      
+      // If no specific period found, try to find by current year
+      return years.find(year => year.period === currentYear.toString() || year.id === currentYear.toString());
+    };
+    
+    const currentPeriodOption = getCurrentPeriod();
+    if (currentPeriodOption) {
+      setSelectedYears([currentPeriodOption.id]);
+      setAppliedFilters({ years: [currentPeriodOption.id], skuDescriptions: [] });
+    } else {
+      setSelectedYears([]);
+      setAppliedFilters({ years: [], skuDescriptions: [] });
+    }
     setSelectedSkuDescriptions([]);
-    setAppliedFilters({ years: [], skuDescriptions: [] });
     setOpenIndex(0);
   };
 
@@ -201,7 +256,7 @@ const CmSkuDetail: React.FC = () => {
   }, [pageLoadStartTime]);
 
   // Fetch years from API
-  const [years, setYears] = useState<string[]>([]);
+  const [years, setYears] = useState<Array<{id: string, period: string}>>([]);
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
 
   useEffect(() => {
@@ -222,23 +277,80 @@ const CmSkuDetail: React.FC = () => {
           yearsData = result.data;
         }
         
-        // Extract period values from objects or convert to strings
-        const yearsAsStrings = yearsData
+        // Process years with id and period
+        const processedYears = yearsData
           .map((year: any) => {
             if (typeof year === 'string' || typeof year === 'number') {
-              return String(year);
+              return { id: String(year), period: String(year) };
             } else if (year && typeof year === 'object' && year.period) {
-              return String(year.period);
+              return { id: String(year.id || year.period), period: String(year.period) };
             } else if (year && typeof year === 'object' && year.id) {
-              return String(year.id);
+              return { id: String(year.id), period: String(year.period || year.id) };
             } else {
               return null;
             }
           })
-          .filter((year: string | null) => year && year.trim() !== '') as string[];
+          .filter((year: any) => year && year.id && year.period) as Array<{id: string, period: string}>;
         
-        console.log('Processed years:', yearsAsStrings); // Debug log
-        setYears(yearsAsStrings);
+        console.log('Processed years:', processedYears); // Debug log
+        setYears(processedYears);
+        
+        // Set current period as default if available
+        const getCurrentPeriod = () => {
+          const now = new Date();
+          const currentMonth = now.getMonth() + 1; // 1-12
+          const currentYear = now.getFullYear();
+          
+          // Find the period that contains the current date
+          // For periods like "July 2025 to June 2026", we need to check if current date falls within
+          for (const yearOption of processedYears) {
+            const periodText = yearOption.period;
+            
+            // Try to parse period text like "July 2025 to June 2026"
+            const periodMatch = periodText.match(/(\w+)\s+(\d{4})\s+to\s+(\w+)\s+(\d{4})/i);
+            if (periodMatch) {
+              const startMonth = periodMatch[1];
+              const startYear = parseInt(periodMatch[2]);
+              const endMonth = periodMatch[3];
+              const endYear = parseInt(periodMatch[4]);
+              
+              // Convert month names to numbers
+              const monthNames: { [key: string]: number } = {
+                'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+                'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+              };
+              
+              const startMonthNum = monthNames[startMonth.toLowerCase()];
+              const endMonthNum = monthNames[endMonth.toLowerCase()];
+              
+              if (startMonthNum && endMonthNum) {
+                // Check if current date falls within this period
+                const currentDate = new Date(currentYear, currentMonth - 1, 1);
+                const periodStart = new Date(startYear, startMonthNum - 1, 1);
+                const periodEnd = new Date(endYear, endMonthNum, 0); // Last day of end month
+                
+                if (currentDate >= periodStart && currentDate <= periodEnd) {
+                  return yearOption;
+                }
+              }
+            }
+            
+            // Fallback: check if period contains current year
+            if (periodText.includes(currentYear.toString())) {
+              return yearOption;
+            }
+          }
+          
+          // If no specific period found, try to find by current year
+          return processedYears.find(year => year.period === currentYear.toString() || year.id === currentYear.toString());
+        };
+        
+        const currentPeriodOption = getCurrentPeriod();
+        if (currentPeriodOption) {
+          setSelectedYears([currentPeriodOption.id]);
+          // Apply filter automatically for current period
+          setAppliedFilters(prev => ({ ...prev, years: [currentPeriodOption.id] }));
+        }
       } catch (err) {
         console.error('Error fetching years:', err);
         setYears([]);
@@ -246,6 +358,65 @@ const CmSkuDetail: React.FC = () => {
     };
     fetchYears();
   }, []);
+
+  // Additional useEffect to handle current period selection when years are loaded
+  useEffect(() => {
+    if (years.length > 0 && selectedYears.length === 0) {
+      const getCurrentPeriod = () => {
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentYear = now.getFullYear();
+        
+        // Find the period that contains the current date
+        for (const yearOption of years) {
+          const periodText = yearOption.period;
+          
+          // Try to parse period text like "July 2025 to June 2026"
+          const periodMatch = periodText.match(/(\w+)\s+(\d{4})\s+to\s+(\w+)\s+(\d{4})/i);
+          if (periodMatch) {
+            const startMonth = periodMatch[1];
+            const startYear = parseInt(periodMatch[2]);
+            const endMonth = periodMatch[3];
+            const endYear = parseInt(periodMatch[4]);
+            
+            // Convert month names to numbers
+            const monthNames: { [key: string]: number } = {
+              'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+              'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+            };
+            
+            const startMonthNum = monthNames[startMonth.toLowerCase()];
+            const endMonthNum = monthNames[endMonth.toLowerCase()];
+            
+            if (startMonthNum && endMonthNum) {
+              // Check if current date falls within this period
+              const currentDate = new Date(currentYear, currentMonth - 1, 1);
+              const periodStart = new Date(startYear, startMonthNum - 1, 1);
+              const periodEnd = new Date(endYear, endMonthNum, 0); // Last day of end month
+              
+              if (currentDate >= periodStart && currentDate <= periodEnd) {
+                return yearOption;
+              }
+            }
+          }
+          
+          // Fallback: check if period contains current year
+          if (periodText.includes(currentYear.toString())) {
+            return yearOption;
+          }
+        }
+        
+        // If no specific period found, try to find by current year
+        return years.find(year => year.period === currentYear.toString() || year.id === currentYear.toString());
+      };
+      
+      const currentPeriodOption = getCurrentPeriod();
+      if (currentPeriodOption) {
+        setSelectedYears([currentPeriodOption.id]);
+        setAppliedFilters(prev => ({ ...prev, years: [currentPeriodOption.id] }));
+      }
+    }
+  }, [years, selectedYears.length]);
 
   // Fetch SKU descriptions from API
   const [skuDescriptions, setSkuDescriptions] = useState<string[]>([]);
@@ -275,11 +446,14 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchMaterialTypes = async () => {
       try {
-        const response = await fetch('http://localhost:3000/material-type-master');
+        console.log('Fetching material types from API...');
+        const response = await fetch('http://localhost:3000/component-master-material-type');
         if (!response.ok) throw new Error('Failed to fetch material types');
         const result = await response.json();
+        console.log('Material types API response:', result);
         if (result.success) {
           setMaterialTypes(result.data);
+          console.log('Material types loaded:', result.data);
         }
       } catch (error) {
         console.error('Error fetching material types:', error);
@@ -295,14 +469,18 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchUnitOfMeasureOptions = async () => {
       try {
+        console.log('Fetching UOM options from API...');
         const response = await fetch('http://localhost:3000/master-component-umo');
         const result = await response.json();
+        console.log('UOM API response:', result);
         if (result.success && Array.isArray(result.data)) {
           setUnitOfMeasureOptions(result.data);
+          console.log('UOM options loaded:', result.data);
         } else {
           setUnitOfMeasureOptions([]);
         }
       } catch (err) {
+        console.error('Error fetching UOM options:', err);
         setUnitOfMeasureOptions([]);
       }
     };
@@ -646,13 +824,69 @@ const CmSkuDetail: React.FC = () => {
   const [componentDetails, setComponentDetails] = useState<{ [skuCode: string]: any[] }>({});
   const [componentDetailsLoading, setComponentDetailsLoading] = useState<{ [skuCode: string]: boolean }>({});
 
+  // Helper functions to map IDs to display names
+  const getMaterialTypeName = (id: any) => {
+    if (!id) return 'N/A';
+    // Convert to number for comparison
+    const numericId = parseInt(id);
+    console.log('Mapping material_type_id:', id, 'Converted to:', numericId, 'Available materialTypes:', materialTypes);
+    const material = materialTypes.find(mt => mt.id === numericId);
+    console.log('Found material:', material);
+    return material ? material.item_name : 'N/A';
+  };
+
+  const getUomName = (id: any) => {
+    if (!id) return 'N/A';
+    const numericId = parseInt(id);
+    console.log('Mapping UOM ID:', id, 'Converted to:', numericId, 'Available UOMs:', unitOfMeasureOptions);
+    const uom = unitOfMeasureOptions.find(uom => uom.id === numericId);
+    console.log('Found UOM:', uom);
+    return uom ? uom.item_name : 'N/A';
+  };
+
+  const getPackagingLevelName = (id: any) => {
+    if (!id) return 'N/A';
+    const numericId = parseInt(id);
+    const level = packagingLevelOptions.find(pl => pl.id === numericId);
+    return level ? level.item_name : 'N/A';
+  };
+
+  const getPackagingMaterialName = (id: any) => {
+    if (!id) return 'N/A';
+    const numericId = parseInt(id);
+    const material = packagingMaterialOptions.find(pm => pm.id === numericId);
+    return material ? material.item_name : 'N/A';
+  };
+
   // Function to fetch component details for a SKU
   const fetchComponentDetails = async (skuCode: string) => {
     setComponentDetailsLoading(prev => ({ ...prev, [skuCode]: true }));
     try {
       const res = await fetch(`http://localhost:3000/component-details/${skuCode}`);
       const data = await res.json();
-      setComponentDetails(prev => ({ ...prev, [skuCode]: data.data || [] }));
+      
+      // Map the component data to include display names
+      console.log('Raw component data:', data.data);
+      console.log('Available materialTypes for mapping:', materialTypes);
+      
+      const mappedData = (data.data || []).map((component: any) => {
+        console.log('Processing component:', component);
+        const mapped = {
+          ...component,
+          // Map IDs to display names
+          material_type_display: getMaterialTypeName(component.material_type_id),
+          component_uom_display: getUomName(component.component_uom_id),
+          component_base_uom_display: getUomName(component.component_base_uom_id),
+          component_packaging_type_display: getPackagingMaterialName(component.component_packaging_type_id),
+          component_packaging_level_display: getPackagingLevelName(component.component_packaging_level_id),
+          weight_unit_measure_display: getUomName(component.weight_unit_measure_id),
+          component_unit_weight_display: getUomName(component.component_unit_weight_id)
+        };
+        console.log('Mapped component:', mapped);
+        return mapped;
+      });
+      
+      setComponentDetails(prev => ({ ...prev, [skuCode]: mappedData }));
     } catch (err) {
       setComponentDetails(prev => ({ ...prev, [skuCode]: [] }));
     } finally {
@@ -801,52 +1035,7 @@ const CmSkuDetail: React.FC = () => {
     fetchMaterialTypeOptions();
   }, []);
 
-  // Dynamic table for component details
-  const ComponentTable: React.FC<{ data: any[], onStatusChange: (id: number, newStatus: boolean, skuCode?: string) => void, skuCode?: string }> = ({ data, onStatusChange, skuCode }) => {
-    if (!data || data.length === 0) {
-      return <div>No component details available.</div>;
-    }
-    // Exclude technical fields you don't want to show
-    const excludeFields = ['id', 'user_id', 'created_by', 'last_update_date', 'created_date', 'category_entry_id', 'data_verification_entry_id', 'signed_off_by', 'signed_off_date', 'mandatory_fields_completion_status', 'evidence_provided', 'document_status', 'year', 'component_unit_weight_id', 'sku_code', 'formulation_reference'];
-    const columns = Object.keys(data[0]).filter(key => !excludeFields.includes(key));
-    return (
-      <div className="table-responsive tableCommon tableGreen" style={{ overflowX: 'auto', marginTop: 16 }}>
-        <table className="table table-striped">
-          <thead>
-            <tr>
-              <th style={{ background: '#39ea03', minWidth: 80, position: 'sticky', left: 0, zIndex: 2 }}>Actions</th>
-              <th style={{ background: '#39ea03', minWidth: 80, position: 'sticky', left: 80, zIndex: 2 }}>Is Active</th>
-              {columns.map(col => (
-                <th key={col} style={{ background: '#39ea03', minWidth: 80 }}>{col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, idx) => (
-              <tr key={row.id || idx}>
-                {/* Actions column */}
-                <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1 }}>
-                  <i className="ri-edit-line" style={{ cursor: 'pointer', marginRight: 8 }} title="Edit"></i>
-                  <i className="ri-eye-line" style={{ cursor: 'pointer' }} title="View"></i>
-                </td>
-                {/* Is Active column */}
-                <td style={{ position: 'sticky', left: 80, background: '#fff', zIndex: 1, textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!row.is_active}
-                    onChange={() => onStatusChange(row.id, !row.is_active, skuCode)}
-                  />
-                </td>
-                {columns.map(col => (
-                  <td key={col}>{row[col] !== null && row[col] !== undefined ? String(row[col]) : ''}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
+
 
   useEffect(() => {
     if (filteredSkuData.length > 0 && openIndex === 0 && !componentDetails[filteredSkuData[0].sku_code]) {
@@ -957,7 +1146,7 @@ const CmSkuDetail: React.FC = () => {
           </div>
         </div>
 
-        <div className="row">
+        <div className="row"> 
           <div className="col-sm-12">
             <div className="filters">
               <ul>
@@ -977,9 +1166,9 @@ const CmSkuDetail: React.FC = () => {
                     disabled={years.length === 0}
                   >
                     <option value="">Select Year</option>
-                    {years.filter(y => y && typeof y === 'string' && y.trim() !== '').map((year, index) => (
-                      <option key={index} value={year}>
-                        {year}
+                    {years.map((year, index) => (
+                      <option key={year.id} value={year.id}>
+                        {year.period}
                       </option>
                     ))}
                   </select>
@@ -1164,11 +1353,401 @@ const CmSkuDetail: React.FC = () => {
                           Add Component <i className="ri-add-circle-line"></i>
                         </button>
                       </div>
-                      {componentDetailsLoading[sku.sku_code] ? (
-                        <div>Loading component details...</div>
-                      ) : (
-                        <ComponentTable data={componentDetails[sku.sku_code] || []} onStatusChange={handleComponentStatusChange} skuCode={sku.sku_code} />
-                      )}
+                      
+                      {/* Component Table Header */}
+                      <div style={{ 
+                        background: '#f8f9fa', 
+                        border: '1px solid #e9ecef',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        marginTop: '16px'
+                      }}>
+                        <div style={{ 
+                          padding: '16px 20px', 
+                          borderBottom: '1px solid #e9ecef',
+                          background: '#000',
+                          color: '#fff'
+                        }}>
+                          <h6 style={{ 
+                            fontWeight: '600', 
+                            margin: '0',
+                            fontSize: '16px'
+                          }}>
+                            Component Details
+                          </h6>
+                        </div>
+                        
+                        <div style={{ padding: '20px' }}>
+                          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+                            <table style={{ 
+                              width: '100%', 
+                              borderCollapse: 'collapse',
+                              backgroundColor: '#fff'
+                            }}>
+                              <thead>
+                                <tr style={{ backgroundColor: '#000' }}>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '120px'
+                                  }}>
+                                    Component Type
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '120px'
+                                  }}>
+                                    Component Code
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '150px'
+                                  }}>
+                                    Component Description
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '140px'
+                                  }}>
+                                    Component validity date - From
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '140px'
+                                  }}>
+                                    Component validity date - To
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '130px'
+                                  }}>
+                                    Component Category
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '130px'
+                                  }}>
+                                    Component Quantity
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '150px'
+                                  }}>
+                                    Component Unit of Measure
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '150px'
+                                  }}>
+                                    Component Base Quantity
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '170px'
+                                  }}>
+                                    Component Base Unit of Measure
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '80px'
+                                  }}>
+                                    %w/w
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '150px'
+                                  }}>
+                                    Component Packaging Type
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '170px'
+                                  }}>
+                                    Component Packaging Material
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '130px'
+                                  }}>
+                                    Component Unit Weight
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '180px'
+                                  }}>
+                                    Component Weight Unit of Measure
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '200px'
+                                  }}>
+                                    % Mechanical Post-Consumer Recycled Content (inc. Chemical)
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '200px'
+                                  }}>
+                                    % Mechanical Post-Industrial Recycled Content
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '150px'
+                                  }}>
+                                    % Chemical Recycled Content
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '120px'
+                                  }}>
+                                    % Bio-sourced?
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '200px'
+                                  }}>
+                                    Material structure - multimaterials only (with % wt)
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '180px'
+                                  }}>
+                                    Component packaging colour / opacity
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '150px'
+                                  }}>
+                                    Component packaging level
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '180px'
+                                  }}>
+                                    Component dimensions (3D - LxWxH, 2D - LxW)
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {componentDetailsLoading[sku.sku_code] ? (
+                                  <tr>
+                                    <td colSpan={23} style={{ 
+                                      padding: '40px 20px', 
+                                      textAlign: 'center', 
+                                      color: '#666',
+                                      fontSize: '14px'
+                                    }}>
+                                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                        <span className="visually-hidden">Loading...</span>
+                                      </div>
+                                      Loading component details...
+                                    </td>
+                                  </tr>
+                                ) : componentDetails[sku.sku_code] && componentDetails[sku.sku_code].length > 0 ? (
+                                  componentDetails[sku.sku_code].map((component: any, compIndex: number) => (
+                                    <tr key={component.id || compIndex} style={{ backgroundColor: compIndex % 2 === 0 ? '#f8f9fa' : '#fff' }}>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.material_type_display || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_code || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_description || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_valid_from ? new Date(component.component_valid_from).toLocaleDateString() : 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_valid_to ? new Date(component.component_valid_to).toLocaleDateString() : 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_material_group || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_quantity || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_uom_display || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_base_quantity || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_base_uom_display || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.percent_w_w || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_packaging_type_display || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_packaging_material || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_unit_weight || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.weight_unit_measure_display || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.percent_mechanical_pcr_content || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.percent_mechanical_pir_content || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.percent_chemical_recycled_content || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.percent_bio_sourced || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.material_structure_multimaterials || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_packaging_color_opacity || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_packaging_level_display || 'N/A'}
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                        {component.component_dimensions || 'N/A'}
+                                      </td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={23} style={{ 
+                                      padding: '40px 20px', 
+                                      textAlign: 'center', 
+                                      color: '#666',
+                                      fontSize: '14px',
+                                      fontStyle: 'italic'
+                                    }}>
+                                      No component data available
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </Collapse>
                 </div>
@@ -1208,8 +1787,8 @@ const CmSkuDetail: React.FC = () => {
                         disabled={addSkuLoading}
                       >
                         <option value="">Select Period</option>
-                        {years.map(y => (
-                          <option key={y} value={y}>{y}</option>
+                        {years.map(year => (
+                          <option key={year.id} value={year.id}>{year.period}</option>
                         ))}
                       </select>
                       {addSkuErrors.period && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.period}</div>}

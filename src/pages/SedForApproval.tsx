@@ -396,28 +396,42 @@ const SedForApproval: React.FC = () => {
     <Layout>
       <div className="mainInternalPages">
         <div style={{ marginBottom: 8 }}>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div className="commonTitle">
+            <div className="icon">
+              <i className="ri-file-pdf-2-fill"></i>
+            </div>
+            <h1>Generate PDF</h1>
+          </div>
           <button
             onClick={() => navigate(-1)}
             style={{
-              background: 'none',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
               border: 'none',
-              color: '#000',
-              fontSize: 22,
+              borderRadius: '6px',
+              padding: '10px 20px',
+              fontWeight: '600',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              marginRight: 12
+              gap: '8px',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
             }}
           >
-            <i className="ri-arrow-left-line" style={{ fontSize: 24, marginRight: 4 }} />
+            <i className="ri-arrow-left-line" style={{ fontSize: 16 }}></i>
             Back
           </button>
-        </div>
-        <div className="commonTitle">
-          <div className="icon">
-            <i className="ri-file-pdf-2-fill"></i>
-          </div>
-          <h1>Generate PDF</h1>
         </div>
         
         <div className="filters CMDetails">
@@ -491,35 +505,15 @@ const SedForApproval: React.FC = () => {
                   <div className="filter-group">
                     <label className="fBold">&nbsp;</label>
                     <button className="btnCommon btnGreen w-100" onClick={() => {}} disabled={loading}>
-                      <span>Search</span>
-                      <i className="ri-search-line"></i>
+                      <span>Submit</span>
+                      <i className="ri-check-line"></i>
                     </button>
                   </div>
                 </div>
                 
-                <div className="col-md-2">
-                  <div className="filter-group">
-                    <label className="fBold">&nbsp;</label>
-                    <button className="btnCommon btnBlack w-100" onClick={() => {setSelectedYears([]); setSelectedFields([]);}} disabled={loading}>
-                      <span>Reset</span>
-                      <i className="ri-refresh-line"></i>
-                    </button>
-                  </div>
-                </div>
+
                 
-                <div className="col-md-1">
-                  <div className="filter-group">
-                    <label className="fBold">&nbsp;</label>
-                    <button
-                      className="btnCommon btnGreen w-100"
-                      onClick={handleGeneratePDF}
-                      disabled={selectedRows.length === 0}
-                      title="Generate PDF"
-                    >
-                      <i className="ri-file-pdf-2-line"></i>
-                    </button>
-                  </div>
-                </div>
+
               </div>
             </div>
           </div>
