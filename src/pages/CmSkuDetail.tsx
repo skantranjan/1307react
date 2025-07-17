@@ -84,7 +84,6 @@ type AddComponentData = {
   packagingColour: string;
   packagingLevel: string;
   componentDimensions: string;
-  formulationReference?: string;
 };
 
 // Add this helper for info icon
@@ -586,22 +585,23 @@ const CmSkuDetail: React.FC = () => {
   const [addSkuPeriod, setAddSkuPeriod] = useState('');
   const [addSku, setAddSku] = useState('');
   const [addSkuDescription, setAddSkuDescription] = useState('');
-  const [addSkuQty, setAddSkuQty] = useState('');
-  const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
+  const [addSkuDualSource, setAddSkuDualSource] = useState('');
+  const [addSkuReference, setAddSkuReference] = useState('');
+  // const [addSkuQty, setAddSkuQty] = useState(''); // Hidden for now, may be used later
+  const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', server: '' });
   const [addSkuSuccess, setAddSkuSuccess] = useState('');
   const [addSkuLoading, setAddSkuLoading] = useState(false);
 
   // Add SKU handler
   const handleAddSkuSave = async () => {
     // Client-side validation
-    let errors = { sku: '', skuDescription: '', period: '', qty: '', server: '' };
+    let errors = { sku: '', skuDescription: '', period: '', server: '' };
     if (!addSku.trim()) errors.sku = 'A value is required for SKU code';
     if (!addSkuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
     if (!addSkuPeriod) errors.period = 'A value is required for the Period';
-    if (!addSkuQty || isNaN(Number(addSkuQty)) || Number(addSkuQty) <= 0) errors.qty = 'A value is required for Purchased Quantity';
     setAddSkuErrors(errors);
     setAddSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period || errors.qty) return;
+    if (errors.sku || errors.skuDescription || errors.period) return;
 
     // POST to API
     setAddSkuLoading(true);
@@ -615,7 +615,8 @@ const CmSkuDetail: React.FC = () => {
           sku_code: addSku,
           sku_description: addSkuDescription,
           period: addSkuPeriod,
-          purchased_quantity: addSkuQty, // send as string
+          dual_source: addSkuDualSource,
+          sku_reference: addSkuReference,
           cm_code: cmCode,
           cm_description: cmDescription
         })
@@ -629,7 +630,7 @@ const CmSkuDetail: React.FC = () => {
       }
       // Success
       setAddSkuSuccess('SKU added successfully!');
-      setAddSkuErrors({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
+      setAddSkuErrors({ sku: '', skuDescription: '', period: '', server: '' });
       // Call audit log API
       const auditResponse = await fetch('http://localhost:3000/sku-auditlog/add', {
         method: 'POST',
@@ -658,7 +659,9 @@ const CmSkuDetail: React.FC = () => {
         setAddSku('');
         setAddSkuDescription('');
         setAddSkuPeriod('');
-        setAddSkuQty('');
+        setAddSkuDualSource('');
+        setAddSkuReference('');
+        // setAddSkuQty(''); // Hidden for now
         setAddSkuSuccess('');
         setLoading(true); // show full-page loader
         await fetchSkuDetails(); // refresh data
@@ -680,9 +683,8 @@ const CmSkuDetail: React.FC = () => {
     qty: '',
     dualSource: '',
     skuReference: '',
-    formulationReference: '',
   });
-  const [editSkuErrors, setEditSkuErrors] = useState({ sku: '', skuDescription: '', period: '', qty: '', formulationReference: '', server: '' });
+  const [editSkuErrors, setEditSkuErrors] = useState({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
   const [editSkuSuccess, setEditSkuSuccess] = useState('');
   const [editSkuLoading, setEditSkuLoading] = useState(false);
 
@@ -695,9 +697,8 @@ const CmSkuDetail: React.FC = () => {
       qty: sku.purchased_quantity != null ? String(sku.purchased_quantity) : '',
       dualSource: sku.dual_source || '',
       skuReference: sku.sku_reference || '',
-      formulationReference: sku.formulation_reference || '',
     });
-    setEditSkuErrors({ sku: '', skuDescription: '', period: '', qty: '', formulationReference: '', server: '' });
+    setEditSkuErrors({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
     setEditSkuSuccess('');
     setShowEditSkuModal(true);
   };
@@ -705,15 +706,14 @@ const CmSkuDetail: React.FC = () => {
   // Edit SKU handler
   const handleEditSkuUpdate = async () => {
     // Client-side validation
-    let errors = { sku: '', skuDescription: '', period: '', qty: '', formulationReference: '', server: '' };
+    let errors = { sku: '', skuDescription: '', period: '', qty: '', server: '' };
     if (!editSkuData.sku.trim()) errors.sku = 'A value is required for SKU code';
     if (!editSkuData.skuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
     if (!editSkuData.period) errors.period = 'A value is required for the Period';
-    if (!editSkuData.qty || isNaN(Number(editSkuData.qty)) || Number(editSkuData.qty) <= 0) errors.qty = 'A value is required for Purchased Quantity';
-    // Formulation Reference is now optional, so no validation
+    // if (!editSkuData.qty || isNaN(Number(editSkuData.qty)) || Number(editSkuData.qty) <= 0) errors.qty = 'A value is required for Purchased Quantity';
     setEditSkuErrors(errors);
     setEditSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period || errors.qty) return;
+    if (errors.sku || errors.skuDescription || errors.period) return;
 
     // PUT to API
     setEditSkuLoading(true);
@@ -727,10 +727,8 @@ const CmSkuDetail: React.FC = () => {
           sku_code: editSkuData.sku,
           sku_description: editSkuData.skuDescription,
           period: editSkuData.period,
-          purchased_quantity: editSkuData.qty, // send as string
           dual_source: editSkuData.dualSource,
-          sku_reference: editSkuData.skuReference,
-          formulation_reference: editSkuData.formulationReference
+          sku_reference: editSkuData.skuReference
         })
       });
       const result = await response.json();
@@ -740,7 +738,7 @@ const CmSkuDetail: React.FC = () => {
         return;
       }
       setEditSkuSuccess('SKU updated successfully!');
-      setEditSkuErrors({ sku: '', skuDescription: '', period: '', qty: '', formulationReference: '', server: '' });
+      setEditSkuErrors({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
       // Call audit log API
       const auditResponse = await fetch('http://localhost:3000/sku-auditlog/add', {
         method: 'POST',
@@ -1020,8 +1018,7 @@ const CmSkuDetail: React.FC = () => {
           materialStructure: '',
           packagingColour: '',
           packagingLevel: '',
-          componentDimensions: '',
-          formulationReference: ''
+          componentDimensions: ''
         });
         setUploadedFiles([]);
         setSelectedCategories([]);
@@ -1383,10 +1380,10 @@ const CmSkuDetail: React.FC = () => {
                       </div>
                       <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
                       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-                        <span style={{ fontWeight: 600, marginRight: 8 }}>Component Detail:</span>
-                        <span style={{ marginRight: 8 }}>Packaging Type</span>
+                        <span style={{ fontWeight: 600, marginRight: 8 }}>Material Type:</span>
+                        <span style={{ marginRight: 8 }}>Packaging</span>
                         <input type="radio" name={`option-${sku.id}`} value="Option 1" style={{ marginRight: 8 }} />
-                        <span style={{ marginRight: 8 }}>Material Type</span>
+                        <span style={{ marginRight: 8 }}>Raw Material</span>
                         <input type="radio" name={`option-${sku.id}`} value="Option 2" style={{ marginRight: 8 }} />
                         <button
                           className="add-sku-btn"
@@ -1425,10 +1422,33 @@ const CmSkuDetail: React.FC = () => {
                             <table style={{ 
                               width: '100%', 
                               borderCollapse: 'collapse',
-                              backgroundColor: '#fff'
+                              backgroundColor: '#fff',
+                              border: '1px solid #dee2e6'
                             }}>
                               <thead>
                                 <tr style={{ backgroundColor: '#000' }}>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '80px'
+                                  }}>
+                                    Action
+                                  </th>
+                                  <th style={{ 
+                                    padding: '12px 16px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    textAlign: 'left',
+                                    borderBottom: '1px solid #e9ecef',
+                                    color: '#fff',
+                                    minWidth: '120px'
+                                  }}>
+                                    Active/Deactive
+                                  </th>
                                   <th style={{ 
                                     padding: '12px 16px', 
                                     fontSize: '13px', 
@@ -1687,7 +1707,7 @@ const CmSkuDetail: React.FC = () => {
                               <tbody>
                                 {componentDetailsLoading[sku.sku_code] ? (
                                   <tr>
-                                    <td colSpan={23} style={{ 
+                                    <td colSpan={25} style={{ 
                                       padding: '40px 20px', 
                                       textAlign: 'center', 
                                       color: '#666',
@@ -1702,10 +1722,70 @@ const CmSkuDetail: React.FC = () => {
                                 ) : componentDetails[sku.sku_code] && componentDetails[sku.sku_code].length > 0 ? (
                                   componentDetails[sku.sku_code].map((component: any, compIndex: number) => (
                                     <tr key={component.id || compIndex} style={{ backgroundColor: compIndex % 2 === 0 ? '#f8f9fa' : '#fff' }}>
-                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef', borderRight: '1px solid #e9ecef' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                          <button
+                                            style={{
+                                              background: 'linear-gradient(135deg, #30ea03 0%, #28c402 100%)',
+                                              border: 'none',
+                                              color: '#000',
+                                              fontSize: '10px',
+                                              fontWeight: '600',
+                                              cursor: 'pointer',
+                                              padding: '2px',
+                                              borderRadius: '2px',
+                                              width: '18px',
+                                              height: '18px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center'
+                                            }}
+                                            onClick={() => {/* Add edit functionality */}}
+                                            title="Edit Component"
+                                          >
+                                            <i className="ri-edit-line" />
+                                          </button>
+                                          <button
+                                            style={{
+                                              background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                                              border: 'none',
+                                              color: '#fff',
+                                              fontSize: '10px',
+                                              fontWeight: '600',
+                                              cursor: 'pointer',
+                                              padding: '2px',
+                                              borderRadius: '2px',
+                                              width: '18px',
+                                              height: '18px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center'
+                                            }}
+                                            onClick={() => {/* Add view functionality */}}
+                                            title="View Component"
+                                          >
+                                            <i className="ri-eye-line" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef', borderRight: '1px solid #e9ecef' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={component.is_active || false}
+                                          onChange={() => handleComponentStatusChange(component.id, !component.is_active, sku.sku_code)}
+                                          style={{
+                                            width: '18px',
+                                            height: '18px',
+                                            cursor: 'pointer',
+                                            accentColor: '#30ea03'
+                                          }}
+                                          title={component.is_active ? 'Deactivate Component' : 'Activate Component'}
+                                        />
+                                      </td>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef', borderRight: '1px solid #e9ecef' }}>
                                         {component.material_type_display || 'N/A'}
                                       </td>
-                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef', borderRight: '1px solid #e9ecef' }}>
                                         {component.component_code || 'N/A'}
                                       </td>
                                       <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
@@ -1768,14 +1848,14 @@ const CmSkuDetail: React.FC = () => {
                                       <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
                                         {component.component_packaging_level_display || 'N/A'}
                                       </td>
-                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef' }}>
+                                      <td style={{ padding: '12px 16px', fontSize: '13px', borderBottom: '1px solid #e9ecef', borderRight: '1px solid #e9ecef' }}>
                                         {component.component_dimensions || 'N/A'}
                                       </td>
                                     </tr>
                                   ))
                                 ) : (
                                   <tr>
-                                    <td colSpan={23} style={{ 
+                                    <td colSpan={25} style={{ 
                                       padding: '40px 20px', 
                                       textAlign: 'center', 
                                       color: '#666',
@@ -1835,19 +1915,6 @@ const CmSkuDetail: React.FC = () => {
               </div>
               <div className="modal-body" style={{ background: '#fff' }}>
                 <div className="container-fluid">
-                  {/* Mandatory fields note */}
-                  <div style={{ 
-                    background: '#f8f9fa', 
-                    padding: '12px 16px', 
-                    borderRadius: '6px', 
-                    marginBottom: '20px',
-                    border: '1px solid #e9ecef',
-                    fontSize: '14px',
-                    color: '#495057'
-                  }}>
-                    <i className="ri-information-line" style={{ marginRight: 8, color: '#30ea03' }} />
-                    <strong>Note:</strong> Fields marked with <span style={{ color: 'red', fontWeight: 'bold' }}>*</span> are mandatory.
-                  </div>
                   <div className="row g-3">
                     {/* Period dropdown */}
                     <div className="col-md-6">
@@ -1889,8 +1956,32 @@ const CmSkuDetail: React.FC = () => {
                       />
                       {addSkuErrors.skuDescription && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.skuDescription}</div>}
                     </div>
-                    {/* Purchased Quantity text field */}
+                    {/* Dual-source SKU text field */}
                     <div className="col-md-6">
+                      <label>Dual-source SKU</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={addSkuDualSource}
+                        onChange={e => setAddSkuDualSource(e.target.value)}
+                        placeholder="Enter Dual-source SKU"
+                        disabled={addSkuLoading}
+                      />
+                    </div>
+                    {/* SKU Reference text field */}
+                    <div className="col-md-6">
+                      <label>SKU Reference</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={addSkuReference}
+                        onChange={e => setAddSkuReference(e.target.value)}
+                        placeholder="Enter SKU Reference"
+                        disabled={addSkuLoading}
+                      />
+                    </div>
+                    {/* Purchased Quantity text field - Hidden for now, may be used later */}
+                    {/* <div className="col-md-6">
                       <label>Purchased Quantity <span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
@@ -1900,14 +1991,28 @@ const CmSkuDetail: React.FC = () => {
                         disabled={addSkuLoading}
                       />
                       {addSkuErrors.qty && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.qty}</div>}
-                    </div>
+                    </div> */}
                   </div>
                   {addSkuErrors.server && <div style={{ color: 'red', marginTop: 16, fontWeight: 600 }}>{addSkuErrors.server}</div>}
                   {addSkuSuccess && <div style={{ color: '#30ea03', marginTop: 16, fontWeight: 600 }}>{addSkuSuccess}</div>}
                 </div>
               </div>
               {/* Professional footer, white bg, black top border, Save button right-aligned */}
-              <div className="modal-footer" style={{ background: '#fff', borderTop: '2px solid #000', display: 'flex', justifyContent: 'flex-end' }}>
+              <div className="modal-footer" style={{ background: '#fff', borderTop: '2px solid #000', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' }}>
+                {/* Mandatory fields note - positioned as shown in image */}
+                <div style={{ 
+                  background: '#f8f9fa', 
+                  padding: '12px 16px', 
+                  borderRadius: '6px', 
+                  border: '1px solid #e9ecef',
+                  fontSize: '14px',
+                  color: '#495057',
+                  marginLeft: '0',
+                  flex: '0 0 auto'
+                }}>
+                  <i className="ri-information-line" style={{ marginRight: 8, color: '#30ea03' }} />
+                  <strong>Note:</strong> Fields marked with <span style={{ color: 'red', fontWeight: 'bold' }}>*</span> are mandatory.
+                </div>
                 <button
                   type="button"
                   className="btn"
@@ -2020,8 +2125,8 @@ const CmSkuDetail: React.FC = () => {
                         style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
                       />
                     </div>
-                    {/* Purchased Quantity text field (required) */}
-                    <div className="col-md-6">
+                    {/* Purchased Quantity text field - Hidden for now, may be used later */}
+                    {/* <div className="col-md-6">
                       <label>Purchased Quantity <span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
@@ -2032,7 +2137,7 @@ const CmSkuDetail: React.FC = () => {
                         disabled={editSkuLoading}
                       />
                       {editSkuErrors.qty && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.qty}</div>}
-                    </div>
+                    </div> */}
                     {/* Dual-source SKU text field (optional) */}
                     <div className="col-md-6">
                       <label>Dual-source SKU</label>
@@ -2057,18 +2162,7 @@ const CmSkuDetail: React.FC = () => {
                         disabled={editSkuLoading}
                       />
                     </div>
-                    {/* Formulation Reference text field (optional) */}
-                    <div className="col-md-6">
-                      <label>Formulation Reference</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editSkuData.formulationReference}
-                        onChange={e => setEditSkuData({ ...editSkuData, formulationReference: e.target.value })}
-                        placeholder="Enter Formulation Reference"
-                        disabled={editSkuLoading}
-                      />
-                    </div>
+
                   </div>
                   {editSkuErrors.server && <div style={{ color: 'red', marginTop: 16, fontWeight: 600 }}>{editSkuErrors.server}</div>}
                   {editSkuSuccess && <div style={{ color: '#30ea03', marginTop: 16, fontWeight: 600 }}>{editSkuSuccess}</div>}
@@ -2391,7 +2485,7 @@ const CmSkuDetail: React.FC = () => {
                           marginBottom: '20px',
                           fontSize: '16px'
                         }}>
-                          File Upload Section
+                        Packaging Specification Evidence
                         </h6>
                         
                         <div className="row">
@@ -2402,14 +2496,14 @@ const CmSkuDetail: React.FC = () => {
                               marginBottom: '8px',
                               display: 'block'
                             }}>
-                              Select Categories <InfoIcon info="Choose one or more categories for file upload." />
+                              KPIS for Evidence Mapping<InfoIcon info="Choose one or more categories for file upload." />
                             </label>
                             <MultiSelect
                               options={[
-                                { value: '1', label: 'Category 1' },
-                                { value: '2', label: 'Category 2' },
-                                { value: '3', label: 'Category 3' },
-                                { value: '4', label: 'Category 4' }
+                                { value: '1', label: 'Weight' },
+                                { value: '2', label: 'Weight UoM' },
+                                { value: '3', label: 'Packaging Type' },
+                                { value: '4', label: 'Material Type' }
                               ]}
                               selectedValues={selectedCategories}
                               onSelectionChange={setSelectedCategories}
