@@ -814,6 +814,7 @@ const CmSkuDetail: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{id: string, categories: string[], files: File[]}>>([]);
+  const [categoryError, setCategoryError] = useState<string>('');
 
   // Add state for selectedSkuCode
   const [selectedSkuCode, setSelectedSkuCode] = useState<string>('');
@@ -952,29 +953,56 @@ const CmSkuDetail: React.FC = () => {
       const category3Files = uploadedFiles.filter(upload => upload.categories.includes('3')).flatMap(upload => upload.files);
       const category4Files = uploadedFiles.filter(upload => upload.categories.includes('4')).flatMap(upload => upload.files);
 
+      // Debug logging
+      console.log('Uploaded files state:', uploadedFiles);
+      console.log('Category 1 files:', category1Files);
+      console.log('Category 2 files:', category2Files);
+      console.log('Category 3 files:', category3Files);
+      console.log('Category 4 files:', category4Files);
+
+      // Check if any files are present
+      const totalFiles = category1Files.length + category2Files.length + category3Files.length + category4Files.length;
+      console.log('Total files to upload:', totalFiles);
+      
+      if (totalFiles === 0) {
+        console.log('Warning: No files are being uploaded');
+      }
+
       if (category1Files.length > 0) {
         category1Files.forEach(file => {
           formData.append('category1_files', file);
+          console.log('Added category1 file:', file.name);
         });
       }
 
       if (category2Files.length > 0) {
         category2Files.forEach(file => {
           formData.append('category2_files', file);
+          console.log('Added category2 file:', file.name);
         });
       }
 
       if (category3Files.length > 0) {
         category3Files.forEach(file => {
           formData.append('category3_files', file);
+          console.log('Added category3 file:', file.name);
         });
       }
 
       if (category4Files.length > 0) {
         category4Files.forEach(file => {
           formData.append('category4_files', file);
+          console.log('Added category4 file:', file.name);
         });
       }
+
+      // Debug: Log FormData contents
+      console.log('FormData contents:');
+      const formDataEntries: [string, FormDataEntryValue][] = [];
+      formData.forEach((value, key) => {
+        formDataEntries.push([key, value]);
+        console.log(key, value);
+      });
 
       // Make the API call
       const response = await fetch('http://localhost:3000/add-component', {
@@ -2506,9 +2534,29 @@ const CmSkuDetail: React.FC = () => {
                                 { value: '4', label: 'Material Type' }
                               ]}
                               selectedValues={selectedCategories}
-                              onSelectionChange={setSelectedCategories}
+                              onSelectionChange={(categories) => {
+                                setSelectedCategories(categories);
+                                setCategoryError(''); // Clear error when categories change
+                              }}
                               placeholder="Select Categories..."
                             />
+                            {categoryError && (
+                              <div style={{
+                                color: '#dc3545',
+                                fontSize: '13px',
+                                marginTop: '8px',
+                                padding: '8px 12px',
+                                backgroundColor: '#f8d7da',
+                                border: '1px solid #f5c6cb',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}>
+                                <i className="ri-error-warning-line" style={{ fontSize: '14px' }} />
+                                {categoryError}
+                              </div>
+                            )}
                           </div>
                           
                           <div className="col-md-6">
@@ -2528,6 +2576,7 @@ const CmSkuDetail: React.FC = () => {
                                 onChange={(e) => {
                                   const files = Array.from(e.target.files || []);
                                   setSelectedFiles(files);
+                                  setCategoryError(''); // Clear error when files change
                                 }}
                                 style={{ 
                                   flex: 1,
@@ -2553,12 +2602,26 @@ const CmSkuDetail: React.FC = () => {
                                 }}
                                 onClick={() => {
                                   if (selectedCategories.length > 0 && selectedFiles.length > 0) {
+                                    // Check if any selected categories are already assigned to other files
+                                    const alreadyAssignedCategories = selectedCategories.filter(category => 
+                                      uploadedFiles.some(upload => 
+                                        upload.categories.includes(category)
+                                      )
+                                    );
+
+                                    if (alreadyAssignedCategories.length > 0) {
+                                      const categoryNames = alreadyAssignedCategories.map(cat => `Category ${cat}`).join(', ');
+                                      setCategoryError(`${categoryNames} ${alreadyAssignedCategories.length === 1 ? 'is' : 'are'} already assigned to another file. Please remove ${alreadyAssignedCategories.length === 1 ? 'it' : 'them'} from the other file first.`);
+                                      return;
+                                    }
+
                                     const newUpload = {
                                       id: Date.now().toString(),
                                       categories: selectedCategories,
                                       files: selectedFiles
                                     };
                                     setUploadedFiles(prev => [...prev, newUpload]);
+                                    setCategoryError(''); // Clear any previous errors
                                     // Don't clear selections - allow user to add more rows
                                     // setSelectedCategories([]);
                                     // setSelectedFiles([]);
