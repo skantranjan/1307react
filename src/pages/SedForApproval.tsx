@@ -449,19 +449,18 @@ const SedForApproval: React.FC = () => {
         <div className="row">
           <div className="col-sm-12">
             <div className="filters">
-              <div className="row g-3">
+              <div className="row g-3 align-items-end">
                 <div className="col-md-3">
                   <div className="filter-group">
                     <label className="fBold">Years</label>
                     <select
                       value={selectedYears.length > 0 ? selectedYears[0] : ''}
                       onChange={(e) => {
-                        console.log('Year selected:', e.target.value);
-                        console.log('Available years:', years);
                         setSelectedYears(e.target.value ? [e.target.value] : []);
                       }}
-                      className="form-control"
+                      className="form-control filter-control"
                       disabled={years.length === 0}
+                      style={{ height: '38px' }}
                     >
                       <option value="">Select Year</option>
                       {years.length === 0 ? (
@@ -474,46 +473,32 @@ const SedForApproval: React.FC = () => {
                         ))
                       )}
                     </select>
-                    {years.length === 0 && (
-                      <div className="text-muted small mt-1">
-                        No years available. Please check the API connection.
-                      </div>
-                    )}
-                    {years.length > 0 && (
-                      <div className="text-success small mt-1">
-                        {years.length} years loaded successfully
-                      </div>
-                    )}
                   </div>
                 </div>
-                
                 <div className="col-md-4">
                   <div className="filter-group">
                     <label className="fBold">Component Fields</label>
-                    <MultiSelect
-                      options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
-                      selectedValues={selectedFields}
-                      onSelectionChange={setSelectedFields}
-                      placeholder="Select Component Fields..."
-                      disabled={componentFields.length === 0}
-                      loading={false}
-                    />
+                    <div style={{ minHeight: '38px' }}>
+                      <MultiSelect
+                        options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
+                        selectedValues={selectedFields}
+                        onSelectionChange={setSelectedFields}
+                        placeholder="Select Component Fields..."
+                        disabled={componentFields.length === 0}
+                        loading={false}
+                      />
+                    </div>
                   </div>
                 </div>
-                
                 <div className="col-md-2">
                   <div className="filter-group">
-                    <label className="fBold">&nbsp;</label>
-                    <button className="btnCommon btnGreen w-100" onClick={() => {}} disabled={loading}>
+                    <label className="fBold" style={{ visibility: 'hidden' }}>&nbsp;</label>
+                    <button className="btnCommon btnGreen w-100 filter-control" style={{ height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => {}} disabled={loading}>
                       <span>Submit</span>
                       <i className="ri-check-line"></i>
                     </button>
                   </div>
                 </div>
-                
-
-                
-
               </div>
             </div>
           </div>
@@ -737,6 +722,25 @@ const SedForApproval: React.FC = () => {
         .btn-outline-success:hover {
           background-color: #30ea03 !important;
           border-color: #30ea03 !important;
+        }
+        
+        .filter-control, .multi-select-container, .multi-select-trigger {
+          min-height: 38px !important;
+          height: 38px !important;
+        }
+        .multi-select-container {
+          width: 100%;
+        }
+        .multi-select-trigger {
+          width: 100%;
+        }
+        .filter-group label.fBold {
+          margin-bottom: 4px;
+        }
+        .filters .row.g-3.align-items-end > [class^='col-'] {
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
         }
         
         @media (max-width: 900px) {

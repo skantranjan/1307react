@@ -496,9 +496,9 @@ const CmDashboard: React.FC = () => {
         <div className="row">
           <div className="col-sm-12">
             <div className="filters">
-              <ul>
-                <li>
-                  <div className="fBold">3PM Code - Description</div>
+              <div className="filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'end', flexWrap: 'wrap', marginBottom: 12 }}>
+                <div style={{ flex: 2, minWidth: 220 }}>
+                  <div className="fBold" style={{ marginBottom: 4 }}>3PM Code - Description</div>
                   <MultiSelect
                     options={cmCodes
                       .sort((a, b) => a.cm_description.localeCompare(b.cm_description))
@@ -515,9 +515,9 @@ const CmDashboard: React.FC = () => {
                   />
                   {loading && <small style={{color: '#666'}}>Loading 3PM codes...</small>}
                   {error && <small style={{color: 'red'}}>Error: {error}</small>}
-                </li>
-                <li>
-                  <div className="fBold">Signoff Status</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div className="fBold" style={{ marginBottom: 4 }}>Signoff Status</div>
                   <MultiSelect
                     options={signoffStatuses.map(status => ({
                       value: status,
@@ -531,20 +531,14 @@ const CmDashboard: React.FC = () => {
                   />
                   {loading && <small style={{color: '#666'}}>Loading signoff statuses...</small>}
                   {error && <small style={{color: 'red'}}>Error: {error}</small>}
-                </li>
-                <li>
-                  <div className="fBold">Period</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div className="fBold" style={{ marginBottom: 4 }}>Period</div>
                   <select
                     value={selectedPeriod}
                     onChange={(e) => setSelectedPeriod(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: '#fff'
-                    }}
+                    className="filter-control"
+                    style={{ width: '100%', height: '38px', padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', backgroundColor: '#fff' }}
                     disabled={loading}
                   >
                     <option value="">Select Period</option>
@@ -556,29 +550,30 @@ const CmDashboard: React.FC = () => {
                   </select>
                   {loading && <small style={{color: '#666'}}>Loading periods...</small>}
                   {error && <small style={{color: 'red'}}>Error: {error}</small>}
-
-                </li>
-                <li>
+                </div>
+                <div style={{ minWidth: 120, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                   <button 
-                    className="btnCommon btnGreen filterButtons" 
+                    className="btnCommon btnGreen filter-control"
+                    style={{ height: '38px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onClick={handleSearch}
                     disabled={loading}
                   >
                     <span>Apply Filters</span>
                     <i className="ri-search-line"></i>
                   </button>
-                </li>
-                <li>
+                </div>
+                <div style={{ minWidth: 100, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                   <button 
-                    className="btnCommon btnBlack filterButtons" 
+                    className="btnCommon btnBlack filter-control"
+                    style={{ height: '38px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onClick={handleReset}
                     disabled={loading}
                   >
                     <span>Reset</span>
                     <i className="ri-refresh-line"></i>
                   </button>
-                </li>
-              </ul>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -763,7 +758,7 @@ const CmDashboard: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <div style={{
+          <div className="signoff-modal" style={{
             background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
             width: '80%',
             maxWidth: '1200px',
@@ -968,6 +963,44 @@ const CmDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      <style>{`
+        .filter-bar .multi-select-container, .filter-bar .multi-select-trigger, .filter-bar .filter-control {
+          min-height: 38px !important;
+          height: 38px !important;
+        }
+        .filter-bar .multi-select-container {
+          width: 100%;
+        }
+        .filter-bar .multi-select-trigger {
+          width: 100%;
+        }
+        .filter-bar .fBold {
+          margin-bottom: 4px;
+        }
+        /* Responsive filter bar */
+        @media (max-width: 900px) {
+          .filter-bar { flex-direction: column !important; gap: 12px !important; }
+          .filter-bar > div { width: 100% !important; min-width: 0 !important; }
+        }
+        /* Responsive table: horizontal scroll on small screens */
+        @media (max-width: 900px) {
+          .table-responsive { overflow-x: auto !important; }
+          .tableCommon table { min-width: 700px !important; }
+        }
+        @media (max-width: 600px) {
+          .mainInternalPages { padding: 4px !important; }
+          .filter-bar { gap: 8px !important; }
+          .commonTitle h1 { font-size: 1.2rem !important; }
+        }
+        /* Responsive modal */
+        @media (max-width: 900px) {
+          .signoff-modal {
+            width: 98% !important;
+            max-width: 98vw !important;
+            padding: 10px !important;
+          }
+        }
+      `}</style>
     </Layout>
   );
 };
