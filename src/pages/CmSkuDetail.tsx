@@ -1455,25 +1455,71 @@ const CmSkuDetail: React.FC = () => {
       // This sends multipart/form-data
       const formData = new FormData();
 
-      // Add all your component data
+      // ===== REQUIRED FIELDS =====
       formData.append('cm_code', cmCode || '');
       formData.append('year', selectedYears.length > 0 ? selectedYears[0] : '');
-      formData.append('periods', selectedYears.length > 0 ? selectedYears[0] : '');
+      formData.append('sku_code', selectedSkuCode || '');
+      formData.append('component_code', addComponentData.componentCode || '');
       
       // Debug logging for year and periods
       console.log('Selected Years:', selectedYears);
       console.log('Year being sent:', selectedYears.length > 0 ? selectedYears[0] : '');
-      console.log('Periods being sent:', selectedYears.length > 0 ? selectedYears[0] : '');
-      formData.append('sku_code', selectedSkuCode || '');
-      formData.append('component_code', addComponentData.componentCode || '');
+      
+      // ===== OPTIONAL COMPONENT FIELDS =====
       formData.append('component_description', addComponentData.componentDescription || '');
+      formData.append('formulation_reference', '');
+      formData.append('material_type_id', addComponentData.componentType || '');
+      formData.append('components_reference', '');
+      formData.append('component_valid_from', addComponentData.validityFrom || '');
+      formData.append('component_valid_to', addComponentData.validityTo || '');
+      formData.append('component_material_group', addComponentData.componentCategory || '');
       formData.append('component_quantity', addComponentData.componentQuantity || '');
       formData.append('component_uom_id', addComponentData.componentUnitOfMeasure || '');
-      formData.append('component_packaging_material', addComponentData.componentPackagingMaterial || '');
+      formData.append('component_base_quantity', addComponentData.componentBaseQuantity || '');
+      formData.append('component_base_uom_id', addComponentData.componentBaseUnitOfMeasure || '');
       formData.append('percent_w_w', addComponentData.wW || '');
       formData.append('evidence', '');
+      formData.append('component_packaging_type_id', addComponentData.componentPackagingType || '');
+      formData.append('component_packaging_material', addComponentData.componentPackagingMaterial || '');
+      formData.append('helper_column', '');
+      formData.append('component_unit_weight', addComponentData.componentUnitWeight || '');
+      formData.append('weight_unit_measure_id', addComponentData.componentWeightUnitOfMeasure || '');
+      formData.append('percent_mechanical_pcr_content', addComponentData.percentPostConsumer || '');
+      formData.append('percent_mechanical_pir_content', addComponentData.percentPostIndustrial || '');
+      formData.append('percent_chemical_recycled_content', addComponentData.percentChemical || '');
+      formData.append('percent_bio_sourced', addComponentData.percentBioSourced || '');
+      formData.append('material_structure_multimaterials', addComponentData.materialStructure || '');
+      formData.append('component_packaging_color_opacity', addComponentData.packagingColour || '');
+      formData.append('component_packaging_level_id', addComponentData.packagingLevel || '');
+      formData.append('component_dimensions', addComponentData.componentDimensions || '');
+      formData.append('packaging_specification_evidence', '');
+      formData.append('evidence_of_recycled_or_bio_source', '');
+      formData.append('category_entry_id', '');
+      formData.append('data_verification_entry_id', '');
       formData.append('user_id', '1');
+      formData.append('signed_off_by', '');
+      formData.append('signed_off_date', '');
+      formData.append('mandatory_fields_completion_status', '');
+      formData.append('evidence_provided', '');
+      formData.append('document_status', '');
+      formData.append('is_active', 'true');
       formData.append('created_by', '1');
+      formData.append('component_unit_weight_id', '');
+      
+      // ===== PACKAGING EVIDENCE FILES =====
+      if (addComponentData.packagingEvidence.length > 0) {
+        // Option 1: Direct field
+        addComponentData.packagingEvidence.forEach(file => {
+          formData.append('packaging_evidence', file);
+          console.log('Added packaging evidence file (direct):', file.name);
+        });
+        
+        // Option 2: Separate object structure (if needed)
+        addComponentData.packagingEvidence.forEach(file => {
+          formData.append('Packagingfile[files][]', file);
+          console.log('Added packaging evidence file (object):', file.name);
+        });
+      }
       
       // Add other optional fields
       if (addComponentData.componentType) formData.append('material_type_id', addComponentData.componentType);
@@ -1494,7 +1540,7 @@ const CmSkuDetail: React.FC = () => {
       if (addComponentData.packagingLevel) formData.append('component_packaging_level_id', addComponentData.packagingLevel);
       if (addComponentData.componentDimensions) formData.append('component_dimensions', addComponentData.componentDimensions);
 
-      // Add files for each category with category names
+      // ===== FILE UPLOADS - KPI CATEGORIES =====
       const category1Files = uploadedFiles.filter(upload => upload.categories.includes('1')).flatMap(upload => upload.files);
       const category2Files = uploadedFiles.filter(upload => upload.categories.includes('2')).flatMap(upload => upload.files);
       const category3Files = uploadedFiles.filter(upload => upload.categories.includes('3')).flatMap(upload => upload.files);
@@ -1502,48 +1548,40 @@ const CmSkuDetail: React.FC = () => {
 
       // Debug logging
       console.log('Uploaded files state:', uploadedFiles);
-      console.log('Category 1 files:', category1Files);
-      console.log('Category 2 files:', category2Files);
-      console.log('Category 3 files:', category3Files);
-      console.log('Category 4 files:', category4Files);
+      console.log('Category 1 files (Weight):', category1Files);
+      console.log('Category 2 files (Weight UOM):', category2Files);
+      console.log('Category 3 files (Packaging Type):', category3Files);
+      console.log('Category 4 files (Material Type):', category4Files);
 
-      // Check if any files are present
-      const totalFiles = category1Files.length + category2Files.length + category3Files.length + category4Files.length;
-      console.log('Total files to upload:', totalFiles);
-      
-      if (totalFiles === 0) {
-        console.log('Warning: No files are being uploaded');
-      }
-
+      // Weight files
       if (category1Files.length > 0) {
-        formData.append('category1_name', 'Weight');
         category1Files.forEach(file => {
           formData.append('category1_files', file);
-          console.log('Added category1 file:', file.name, 'with category: Weight');
+          console.log('Added Weight file:', file.name);
         });
       }
 
+      // Weight UOM files
       if (category2Files.length > 0) {
-        formData.append('category2_name', 'Packaging Type');
         category2Files.forEach(file => {
           formData.append('category2_files', file);
-          console.log('Added category2 file:', file.name, 'with category: Packaging Type');
+          console.log('Added Weight UOM file:', file.name);
         });
       }
 
+      // Packaging Type files
       if (category3Files.length > 0) {
-        formData.append('category3_name', 'Material');
         category3Files.forEach(file => {
           formData.append('category3_files', file);
-          console.log('Added category3 file:', file.name, 'with category: Material');
+          console.log('Added Packaging Type file:', file.name);
         });
       }
 
+      // Material Type files
       if (category4Files.length > 0) {
-        formData.append('category4_name', 'Evidence');
         category4Files.forEach(file => {
           formData.append('category4_files', file);
-          console.log('Added category4 file:', file.name, 'with category: Evidence');
+          console.log('Added Material Type file:', file.name);
         });
       }
 
