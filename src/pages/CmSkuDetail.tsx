@@ -85,6 +85,7 @@ type AddComponentData = {
   packagingLevel: string;
   componentDimensions: string;
   packagingEvidence: File[];
+  period: string;
 };
 
 // Add this helper for info icon
@@ -111,6 +112,13 @@ const CmSkuDetail: React.FC = () => {
   // Modal state
   const [showComponentModal, setShowComponentModal] = useState(false);
   const [showSkuModal, setShowSkuModal] = useState(false);
+
+  // Copy Data modal state
+  const [showCopyDataModal, setShowCopyDataModal] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
 
   // New state for open index
   const [openIndex, setOpenIndex] = useState<number | null>(0); // First panel open by default
@@ -166,7 +174,8 @@ const CmSkuDetail: React.FC = () => {
     packagingColour: '',
     packagingLevel: '',
     componentDimensions: '',
-    packagingEvidence: []
+    packagingEvidence: [],
+    period: ''
   });
   const [editComponentErrors, setEditComponentErrors] = useState<Record<string, string>>({});
   const [editComponentSuccess, setEditComponentSuccess] = useState('');
@@ -306,6 +315,28 @@ const CmSkuDetail: React.FC = () => {
   // Fetch years from API
   const [years, setYears] = useState<Array<{id: string, period: string}>>([]);
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
+
+  // Update editComponentData period when selectedYears changes
+  useEffect(() => {
+    setEditComponentData(prev => ({
+      ...prev,
+      period: selectedYears.length > 0 ? getPeriodTextFromId(selectedYears[0]) : ''
+    }));
+  }, [selectedYears, years]);
+
+  // Helper function to get period text from selected year ID
+  const getPeriodTextFromId = (yearId: string) => {
+    const yearOption = years.find(year => year.id === yearId);
+    return yearOption ? yearOption.period : '';
+  };
+
+  // Update addComponentData period when selectedYears changes
+  useEffect(() => {
+    setAddComponentData(prev => ({
+      ...prev,
+      period: selectedYears.length > 0 ? getPeriodTextFromId(selectedYears[0]) : ''
+    }));
+  }, [selectedYears, years]);
 
   useEffect(() => {
     const fetchYears = async () => {
@@ -816,7 +847,8 @@ const CmSkuDetail: React.FC = () => {
       packagingColour: component.component_packaging_color_opacity || '',
       packagingLevel: component.component_packaging_level_id?.toString() || '',
       componentDimensions: component.component_dimensions || '',
-      packagingEvidence: []
+      packagingEvidence: [],
+      period: selectedYears.length > 0 ? getPeriodTextFromId(selectedYears[0]) : ''
     });
     
     // Reset Packaging Specification Evidence states
@@ -900,7 +932,7 @@ const CmSkuDetail: React.FC = () => {
             component_description: editComponentData.componentDescription || editingComponent.component_description || '',
             year: editingComponent.year || '',
             cm_code: cmCode || '',
-            periods: editingComponent.periods || '',
+            periods: selectedYears.length > 0 ? selectedYears[0] : '',
             material_type_id: Number(editComponentData.componentType || editingComponent.material_type_id) || 0,
             component_quantity: Number(editComponentData.componentQuantity || editingComponent.component_quantity) || 0,
             component_uom_id: Number(editComponentData.componentUnitOfMeasure || editingComponent.component_uom_id) || 0,
@@ -957,7 +989,8 @@ const CmSkuDetail: React.FC = () => {
           packagingColour: '',
           packagingLevel: '',
           componentDimensions: '',
-          packagingEvidence: []
+          packagingEvidence: [],
+          period: selectedYears.length > 0 ? getPeriodTextFromId(selectedYears[0]) : ''
         });
         setEditComponentSuccess('');
         // Refresh the component details for the current SKU
@@ -1055,6 +1088,13 @@ const CmSkuDetail: React.FC = () => {
         setAddSkuSuccess('');
         setLoading(true); // show full-page loader
         await fetchSkuDetails(); // refresh data
+        // Refresh component details for all SKUs to ensure consistency
+        const updatedSkuData = await fetch('http://localhost:3000/sku-details').then(res => res.json());
+        if (updatedSkuData.success && updatedSkuData.data) {
+          for (const sku of updatedSkuData.data) {
+            await fetchComponentDetails(sku.sku_code);
+          }
+        }
         setLoading(false); // hide loader
       }, 1200);
     } catch (err) {
@@ -1157,6 +1197,13 @@ const CmSkuDetail: React.FC = () => {
         setEditSkuSuccess('');
         setLoading(true); // show full-page loader
         await fetchSkuDetails(); // refresh data
+        // Refresh component details for all SKUs to ensure consistency
+        const updatedSkuData = await fetch('http://localhost:3000/sku-details').then(res => res.json());
+        if (updatedSkuData.success && updatedSkuData.data) {
+          for (const sku of updatedSkuData.data) {
+            await fetchComponentDetails(sku.sku_code);
+          }
+        }
         setLoading(false); // hide loader
       }, 1200);
     } catch (err) {
@@ -1192,7 +1239,8 @@ const CmSkuDetail: React.FC = () => {
     packagingColour: '',
     packagingLevel: '',
     componentDimensions: '',
-    packagingEvidence: []
+    packagingEvidence: [],
+    period: ''
   });
 
 
@@ -1204,13 +1252,13 @@ const CmSkuDetail: React.FC = () => {
   // Add state for category selection and file upload
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{id: string, categories: string[], files: File[]}>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{id: string, categories: string[], categoryName?: string, files: File[]}>>([]);
   const [categoryError, setCategoryError] = useState<string>('');
   
   // Edit Component Packaging Specification Evidence states
   const [editSelectedCategories, setEditSelectedCategories] = useState<string[]>([]);
   const [editSelectedFiles, setEditSelectedFiles] = useState<File[]>([]);
-  const [editUploadedFiles, setEditUploadedFiles] = useState<Array<{id: string, categories: string[], files: File[]}>>([]);
+  const [editUploadedFiles, setEditUploadedFiles] = useState<Array<{id: string, categories: string[], categoryName?: string, files: File[]}>>([]);
   const [editCategoryError, setEditCategoryError] = useState<string>('');
 
   // History Log Modal states
@@ -1410,6 +1458,12 @@ const CmSkuDetail: React.FC = () => {
       // Add all your component data
       formData.append('cm_code', cmCode || '');
       formData.append('year', selectedYears.length > 0 ? selectedYears[0] : '');
+      formData.append('periods', selectedYears.length > 0 ? selectedYears[0] : '');
+      
+      // Debug logging for year and periods
+      console.log('Selected Years:', selectedYears);
+      console.log('Year being sent:', selectedYears.length > 0 ? selectedYears[0] : '');
+      console.log('Periods being sent:', selectedYears.length > 0 ? selectedYears[0] : '');
       formData.append('sku_code', selectedSkuCode || '');
       formData.append('component_code', addComponentData.componentCode || '');
       formData.append('component_description', addComponentData.componentDescription || '');
@@ -1440,7 +1494,7 @@ const CmSkuDetail: React.FC = () => {
       if (addComponentData.packagingLevel) formData.append('component_packaging_level_id', addComponentData.packagingLevel);
       if (addComponentData.componentDimensions) formData.append('component_dimensions', addComponentData.componentDimensions);
 
-      // Add files for each category
+      // Add files for each category with category names
       const category1Files = uploadedFiles.filter(upload => upload.categories.includes('1')).flatMap(upload => upload.files);
       const category2Files = uploadedFiles.filter(upload => upload.categories.includes('2')).flatMap(upload => upload.files);
       const category3Files = uploadedFiles.filter(upload => upload.categories.includes('3')).flatMap(upload => upload.files);
@@ -1462,30 +1516,34 @@ const CmSkuDetail: React.FC = () => {
       }
 
       if (category1Files.length > 0) {
+        formData.append('category1_name', 'Weight');
         category1Files.forEach(file => {
           formData.append('category1_files', file);
-          console.log('Added category1 file:', file.name);
+          console.log('Added category1 file:', file.name, 'with category: Weight');
         });
       }
 
       if (category2Files.length > 0) {
+        formData.append('category2_name', 'Packaging Type');
         category2Files.forEach(file => {
           formData.append('category2_files', file);
-          console.log('Added category2 file:', file.name);
+          console.log('Added category2 file:', file.name, 'with category: Packaging Type');
         });
       }
 
       if (category3Files.length > 0) {
+        formData.append('category3_name', 'Material');
         category3Files.forEach(file => {
           formData.append('category3_files', file);
-          console.log('Added category3 file:', file.name);
+          console.log('Added category3 file:', file.name, 'with category: Material');
         });
       }
 
       if (category4Files.length > 0) {
+        formData.append('category4_name', 'Evidence');
         category4Files.forEach(file => {
           formData.append('category4_files', file);
-          console.log('Added category4 file:', file.name);
+          console.log('Added category4 file:', file.name, 'with category: Evidence');
         });
       }
 
@@ -1518,9 +1576,9 @@ const CmSkuDetail: React.FC = () => {
             sku_code: selectedSkuCode,
             component_code: addComponentData.componentCode || '',
             component_description: addComponentData.componentDescription || '',
-            year: selectedYears.length > 0 ? selectedYears[0] : '',
+            year: selectedYears.length > 0 ? getPeriodTextFromId(selectedYears[0]) : '',
             cm_code: cmCode || '',
-            periods: '',
+            periods: selectedYears.length > 0 ? selectedYears[0] : '',
             material_type_id: Number(addComponentData.componentType) || 0,
             component_quantity: Number(addComponentData.componentQuantity) || 0,
             component_uom_id: Number(addComponentData.componentUnitOfMeasure) || 0,
@@ -1575,7 +1633,8 @@ const CmSkuDetail: React.FC = () => {
           packagingColour: '',
           packagingLevel: '',
           componentDimensions: '',
-          packagingEvidence: []
+          packagingEvidence: [],
+          period: selectedYears.length > 0 ? getPeriodTextFromId(selectedYears[0]) : ''
         });
         setUploadedFiles([]);
         setSelectedCategories([]);
@@ -1583,6 +1642,10 @@ const CmSkuDetail: React.FC = () => {
         setAddComponentSuccess('');
         setLoading(true);
         await fetchSkuDetails();
+        // Refresh component details for the specific SKU that was just updated
+        if (selectedSkuCode) {
+          await fetchComponentDetails(selectedSkuCode);
+        }
         setLoading(false);
       }, 1200);
       
@@ -1680,6 +1743,7 @@ const CmSkuDetail: React.FC = () => {
             'Component Dimensions': component.component_dimensions || ''
           });
         });
+
       }
     });
     
@@ -1705,6 +1769,61 @@ const CmSkuDetail: React.FC = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'SKUs and Components');
     XLSX.writeFile(workbook, '3pm-detail-skus-components.xlsx');
+  };
+
+  // Copy Data modal handlers
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      setUploadError('');
+      setUploadSuccess('');
+    }
+  };
+
+  const handleCopyDataUpload = async () => {
+    if (!uploadedFile) {
+      setUploadError('Please select a file to upload');
+      return;
+    }
+
+    setUploadLoading(true);
+    setUploadError('');
+    setUploadSuccess('');
+
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', uploadedFile);
+      formData.append('cmCode', cmCode || '');
+      formData.append('cmDescription', cmDescription);
+
+      // Here you would make the API call to upload the file
+      // For now, we'll simulate the upload process
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
+
+      setUploadSuccess('File uploaded successfully! Data has been copied.');
+      setUploadedFile(null);
+      
+      // Close modal after success
+      setTimeout(() => {
+        setShowCopyDataModal(false);
+        setUploadSuccess('');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadError('Failed to upload file. Please try again.');
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const handleCopyDataModalClose = () => {
+    setShowCopyDataModal(false);
+    setUploadedFile(null);
+    setUploadError('');
+    setUploadSuccess('');
   };
 
   const [materialTypeOptions, setMaterialTypeOptions] = useState<{id: number, item_name: string}[]>([]);
@@ -1736,6 +1855,307 @@ const CmSkuDetail: React.FC = () => {
   }, [filteredSkuData]);
 
   // Add this function in your main component:
+  // State for component suggestions
+  const [componentSuggestions, setComponentSuggestions] = useState<Array<{
+    id: number;
+    component_code: string;
+    periods: string;
+    component_description: string;
+  }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Function to fetch component data by component code
+  const fetchComponentDataByCode = async (componentCode: string) => {
+    if (!componentCode || componentCode.trim() === '') {
+      setComponentSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      console.log('Fetching component data for code:', componentCode);
+      const response = await fetch(`http://localhost:3000/get-component-code-data?component_code=${encodeURIComponent(componentCode)}`);
+      
+      if (!response.ok) {
+        console.log('No component found for code:', componentCode);
+        setComponentSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+      
+      const result = await response.json();
+      console.log('Component data API response:', result);
+      
+            if (result.success && result.data && result.data.components_with_evidence && result.data.components_with_evidence.length > 0) {
+        const componentsWithEvidence = result.data.components_with_evidence;
+        
+        if (componentsWithEvidence.length === 1) {
+          // Only one component found, auto-populate directly
+          const componentData = componentsWithEvidence[0].component_details;
+          const evidenceFiles = componentsWithEvidence[0].evidence_files || [];
+          console.log('Found single component data:', componentData);
+          console.log('Evidence files:', evidenceFiles);
+          
+          // Populate all fields with the fetched data
+          setAddComponentData({
+            ...addComponentData,
+            componentType: componentData.material_type_id?.toString() || '',
+            componentCode: componentData.component_code || '',
+            componentDescription: componentData.component_description || '',
+            validityFrom: componentData.component_valid_from ? componentData.component_valid_from.split('T')[0] : '',
+            validityTo: componentData.component_valid_to ? componentData.component_valid_to.split('T')[0] : '',
+            componentCategory: componentData.component_material_group || '',
+            componentQuantity: componentData.component_quantity?.toString() || '',
+            componentUnitOfMeasure: componentData.component_uom_id?.toString() || '',
+            componentBaseQuantity: componentData.component_base_quantity?.toString() || '',
+            componentBaseUnitOfMeasure: componentData.component_base_uom_id?.toString() || '',
+            wW: componentData.percent_w_w?.toString() || '',
+            componentPackagingType: componentData.component_packaging_type_id?.toString() || '',
+            componentPackagingMaterial: componentData.component_packaging_material || '',
+            componentUnitWeight: componentData.component_unit_weight?.toString() || '',
+            componentWeightUnitOfMeasure: componentData.weight_unit_measure_id?.toString() || '',
+            percentPostConsumer: componentData.percent_mechanical_pcr_content?.toString() || '',
+            percentPostIndustrial: componentData.percent_mechanical_pir_content?.toString() || '',
+            percentChemical: componentData.percent_chemical_recycled_content?.toString() || '',
+            percentBioSourced: componentData.percent_bio_sourced?.toString() || '',
+            materialStructure: componentData.material_structure_multimaterials || '',
+            packagingColour: componentData.component_packaging_color_opacity || '',
+            packagingLevel: componentData.component_packaging_level_id?.toString() || '',
+            componentDimensions: componentData.component_dimensions || '',
+            period: addComponentData.period // Keep existing period
+          });
+          
+          // Populate evidence files
+          if (evidenceFiles.length > 0) {
+            console.log('Processing evidence files:', evidenceFiles);
+            
+            // Create separate rows for each file with its category
+            const newUploadedFiles = evidenceFiles.map((file: any, index: number) => {
+              // Get category from API response
+              const categoryName = file.category || 'Unknown';
+              
+              // Map category name to category number for dropdown selection
+              let categoryNumber = '1'; // Default
+              if (categoryName === 'Weight') {
+                categoryNumber = '1';
+              } else if (categoryName === 'Packaging Type') {
+                categoryNumber = '3';
+              } else if (categoryName === 'Material') {
+                categoryNumber = '4';
+              } else if (categoryName === 'Evidence') {
+                categoryNumber = '2';
+              }
+              
+              return {
+                id: `file-${file.id || index}`,
+                categories: [categoryNumber],
+                categoryName: categoryName,
+                files: [{
+                  name: file.evidence_file_name,
+                  url: file.evidence_file_url,
+                  size: 0, // We don't have file size in the API
+                  type: 'application/octet-stream' // Default type
+                }]
+              };
+            });
+            
+            setUploadedFiles(newUploadedFiles);
+            
+            // Pre-select categories in the dropdown
+            const selectedCategoryNumbers = newUploadedFiles.map((upload: any) => upload.categories[0]);
+            setSelectedCategories(selectedCategoryNumbers);
+            
+            console.log('Evidence files populated with individual rows:', newUploadedFiles);
+            console.log('Pre-selected categories:', selectedCategoryNumbers);
+            
+            // Populate Packaging Evidence field with files that have "PackagingEvidence" category
+            const packagingEvidenceFiles = evidenceFiles.filter((file: any) => 
+              file.category === 'PackagingEvidence' || 
+              file.category === 'Packaging Type' ||
+              file.category === 'Packaging'
+            );
+            
+            if (packagingEvidenceFiles.length > 0) {
+              // Convert API files to File objects for the Packaging Evidence field
+              const packagingFiles = packagingEvidenceFiles.map((file: any) => {
+                // Create a File-like object for the Packaging Evidence field
+                return {
+                  name: file.evidence_file_name,
+                  size: 0,
+                  type: 'application/octet-stream',
+                  lastModified: new Date().getTime()
+                } as File;
+              });
+              
+              setAddComponentData(prev => ({
+                ...prev,
+                packagingEvidence: packagingFiles
+              }));
+              
+              console.log('Packaging Evidence field populated with files:', packagingFiles);
+            }
+          }
+          
+          setComponentSuggestions([]);
+          setShowSuggestions(false);
+          console.log('All fields populated with component data');
+        } else {
+          // Multiple components found, show suggestions
+          const suggestions = componentsWithEvidence.map((compWithEvidence: any) => {
+            const comp = compWithEvidence.component_details;
+            // Get the actual period text from years data
+            const periodId = comp.periods?.toString() || comp.year?.toString() || '';
+            const periodText = years.find(year => year.id === periodId)?.period || periodId;
+            
+            return {
+              id: comp.id,
+              component_code: comp.component_code,
+              periods: periodText,
+              component_description: comp.component_description || ''
+            };
+          });
+          
+          setComponentSuggestions(suggestions);
+          setShowSuggestions(true);
+          console.log('Multiple components found, showing suggestions:', suggestions);
+        }
+      } else {
+        console.log('No component found for code:', componentCode);
+        setComponentSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Error fetching component data:', error);
+      setComponentSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  // Function to select a component from suggestions
+  const selectComponentFromSuggestions = async (componentId: number) => {
+    try {
+      const response = await fetch(`http://localhost:3000/get-component-code-data?component_code=${encodeURIComponent(addComponentData.componentCode)}`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data && result.data.components_with_evidence) {
+          const selectedComponentWithEvidence = result.data.components_with_evidence.find((compWithEvidence: any) => compWithEvidence.component_details.id === componentId);
+          
+          if (selectedComponentWithEvidence) {
+            const selectedComponent = selectedComponentWithEvidence.component_details;
+            const evidenceFiles = selectedComponentWithEvidence.evidence_files || [];
+            
+            // Populate all fields with the selected component data
+            setAddComponentData({
+              ...addComponentData,
+              componentType: selectedComponent.material_type_id?.toString() || '',
+              componentCode: selectedComponent.component_code || '',
+              componentDescription: selectedComponent.component_description || '',
+              validityFrom: selectedComponent.component_valid_from ? selectedComponent.component_valid_from.split('T')[0] : '',
+              validityTo: selectedComponent.component_valid_to ? selectedComponent.component_valid_to.split('T')[0] : '',
+              componentCategory: selectedComponent.component_material_group || '',
+              componentQuantity: selectedComponent.component_quantity?.toString() || '',
+              componentUnitOfMeasure: selectedComponent.component_uom_id?.toString() || '',
+              componentBaseQuantity: selectedComponent.component_base_quantity?.toString() || '',
+              componentBaseUnitOfMeasure: selectedComponent.component_base_uom_id?.toString() || '',
+              wW: selectedComponent.percent_w_w?.toString() || '',
+              componentPackagingType: selectedComponent.component_packaging_type_id?.toString() || '',
+              componentPackagingMaterial: selectedComponent.component_packaging_material || '',
+              componentUnitWeight: selectedComponent.component_unit_weight?.toString() || '',
+              componentWeightUnitOfMeasure: selectedComponent.weight_unit_measure_id?.toString() || '',
+              percentPostConsumer: selectedComponent.percent_mechanical_pcr_content?.toString() || '',
+              percentPostIndustrial: selectedComponent.percent_mechanical_pir_content?.toString() || '',
+              percentChemical: selectedComponent.percent_chemical_recycled_content?.toString() || '',
+              percentBioSourced: selectedComponent.percent_bio_sourced?.toString() || '',
+              materialStructure: selectedComponent.material_structure_multimaterials || '',
+              packagingColour: selectedComponent.component_packaging_color_opacity || '',
+              packagingLevel: selectedComponent.component_packaging_level_id?.toString() || '',
+              componentDimensions: selectedComponent.component_dimensions || '',
+              period: addComponentData.period // Keep existing period
+            });
+            
+            // Populate evidence files
+            if (evidenceFiles.length > 0) {
+              console.log('Processing evidence files from selection:', evidenceFiles);
+              
+              // Create separate rows for each file with its category
+              const newUploadedFiles = evidenceFiles.map((file: any, index: number) => {
+                // Get category from API response
+                const categoryName = file.category || 'Unknown';
+                
+                // Map category name to category number for dropdown selection
+                let categoryNumber = '1'; // Default
+                if (categoryName === 'Weight') {
+                  categoryNumber = '1';
+                } else if (categoryName === 'Packaging Type') {
+                  categoryNumber = '3';
+                } else if (categoryName === 'Material') {
+                  categoryNumber = '4';
+                } else if (categoryName === 'Evidence') {
+                  categoryNumber = '2';
+                }
+                
+                return {
+                  id: `file-${file.id || index}`,
+                  categories: [categoryNumber],
+                  categoryName: categoryName,
+                  files: [{
+                    name: file.evidence_file_name,
+                    url: file.evidence_file_url,
+                    size: 0, // We don't have file size in the API
+                    type: 'application/octet-stream' // Default type
+                  }]
+                };
+              });
+              
+              setUploadedFiles(newUploadedFiles);
+              
+              // Pre-select categories in the dropdown
+              const selectedCategoryNumbers = newUploadedFiles.map((upload: any) => upload.categories[0]);
+              setSelectedCategories(selectedCategoryNumbers);
+              
+              console.log('Evidence files populated with individual rows from selection:', newUploadedFiles);
+              console.log('Pre-selected categories from selection:', selectedCategoryNumbers);
+              
+              // Populate Packaging Evidence field with files that have "PackagingEvidence" category
+              const packagingEvidenceFiles = evidenceFiles.filter((file: any) => 
+                file.category === 'PackagingEvidence' || 
+                file.category === 'Packaging Type' ||
+                file.category === 'Packaging'
+              );
+              
+              if (packagingEvidenceFiles.length > 0) {
+                // Convert API files to File objects for the Packaging Evidence field
+                const packagingFiles = packagingEvidenceFiles.map((file: any) => {
+                  // Create a File-like object for the Packaging Evidence field
+                  return {
+                    name: file.evidence_file_name,
+                    size: 0,
+                    type: 'application/octet-stream',
+                    lastModified: new Date().getTime()
+                  } as File;
+                });
+                
+                setAddComponentData(prev => ({
+                  ...prev,
+                  packagingEvidence: packagingFiles
+                }));
+                
+                console.log('Packaging Evidence field populated with files from selection:', packagingFiles);
+              }
+            }
+            
+            setComponentSuggestions([]);
+            setShowSuggestions(false);
+            console.log('Selected component data populated');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error selecting component:', error);
+    }
+  };
+
   const handleComponentStatusChange = async (componentId: number, newStatus: boolean, skuCode?: string) => {
     console.log('🔍 handleComponentStatusChange called with:', { componentId, newStatus, skuCode });
     
@@ -1922,7 +2342,7 @@ const CmSkuDetail: React.FC = () => {
             <div className="filters">
               <ul>
                 <li>
-                  <div className="fBold">Years</div>
+                  <div className="fBold">Period</div>
                   <select
                     value={selectedYears.length > 0 ? selectedYears[0] : ''}
                     onChange={(e) => setSelectedYears(e.target.value ? [e.target.value] : [])}
@@ -1936,7 +2356,7 @@ const CmSkuDetail: React.FC = () => {
                     }}
                     disabled={years.length === 0}
                   >
-                    <option value="">Select Year</option>
+                    <option value="">Select Period</option>
                     {years.map((year, index) => (
                       <option key={year.id} value={year.id}>
                         {year.period}
@@ -1974,6 +2394,13 @@ const CmSkuDetail: React.FC = () => {
                     onClick={() => setShowSkuModal(true)}
                   >
                     Add SKU <i className="ri-add-circle-line"></i>
+                  </button>
+                  <button
+                    className="btnCommon btnGreen"
+                    style={{ minWidth: 120 }}
+                    onClick={() => setShowCopyDataModal(true)}
+                  >
+                    Copy Data <i className="ri-file-copy-line"></i>
                   </button>
                   <button
                     className="btnCommon btnGreen"
@@ -3686,10 +4113,68 @@ const CmSkuDetail: React.FC = () => {
                       {addComponentErrors.componentType && <div style={{ color: 'red', fontSize: 13, marginTop: '4px' }}>{addComponentErrors.componentType}</div>}
                     </div>
                     {/* Component Code (Free text) */}
-                    <div className="col-md-6">
+                    <div className="col-md-6" style={{ position: 'relative' }}>
                       <label>Component Code <span style={{ color: 'red' }}>*</span> <InfoIcon info="Enter the unique code for this component." /></label>
-                      <input type="text" className="form-control" value={addComponentData.componentCode} onChange={e => setAddComponentData({ ...addComponentData, componentCode: e.target.value })} />
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        value={addComponentData.componentCode} 
+                        onChange={e => {
+                          setAddComponentData({ ...addComponentData, componentCode: e.target.value });
+                          // Show suggestions while typing
+                          if (e.target.value.trim() !== '') {
+                            fetchComponentDataByCode(e.target.value);
+                          } else {
+                            setComponentSuggestions([]);
+                            setShowSuggestions(false);
+                          }
+                        }}
+                        placeholder="Enter component code to auto-fill fields"
+                      />
                       {addComponentErrors.componentCode && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.componentCode}</div>}
+                      
+                      {/* Component Suggestions Dropdown */}
+                      {showSuggestions && componentSuggestions.length > 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          backgroundColor: 'white',
+                          border: '1px solid #ced4da',
+                          borderRadius: '4px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                          zIndex: 1000,
+                          maxHeight: '200px',
+                          overflowY: 'auto'
+                        }}>
+                          {componentSuggestions.map((suggestion) => (
+                            <div
+                              key={suggestion.id}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                borderBottom: '1px solid #f1f3f4',
+                                fontSize: '14px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#f8f9fa';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'white';
+                              }}
+                              onClick={() => selectComponentFromSuggestions(suggestion.id)}
+                            >
+                              <div style={{ fontWeight: '600', color: '#495057' }}>
+                                {suggestion.component_code}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                                Period: {suggestion.periods} | {suggestion.component_description}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {/* Component Description (Free text) */}
                     <div className="col-md-6">
@@ -4107,7 +4592,14 @@ const CmSkuDetail: React.FC = () => {
                                     borderBottom: '1px solid #e9ecef',
                                     color: '#333'
                                   }}>
-                                    {upload.categories.map(cat => `Category ${cat}`).join(', ')}
+                                    {upload.categoryName || upload.categories.map(cat => {
+                                      // Map category number to category name
+                                      const categoryName = cat === '1' ? 'Weight' : 
+                                                          cat === '2' ? 'Packaging Type' : 
+                                                          cat === '3' ? 'Material' : 
+                                                          cat === '4' ? 'Evidence' : `Category ${cat}`;
+                                      return categoryName;
+                                    }).join(', ')}
                                   </td>
                                   <td style={{ 
                                     padding: '16px 20px', 
@@ -4343,11 +4835,15 @@ const CmSkuDetail: React.FC = () => {
                       value={editComponentData.componentType}
                       onChange={(e) => setEditComponentData({ ...editComponentData, componentType: e.target.value })}
                       className="form-control"
+                      disabled
                       style={{ 
                         padding: '8px 12px',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        backgroundColor: '#f8f9fa',
+                        color: '#6c757d',
+                        cursor: 'not-allowed'
                       }}
                     >
                       <option value="">Select Component Type</option>
@@ -4372,11 +4868,15 @@ const CmSkuDetail: React.FC = () => {
                       value={editComponentData.componentCode}
                       onChange={(e) => setEditComponentData({ ...editComponentData, componentCode: e.target.value })}
                       className="form-control"
+                      disabled
                       style={{ 
                         padding: '8px 12px',
                         border: '1px solid #ddd',
                         borderRadius: '4px',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        backgroundColor: '#f8f9fa',
+                        color: '#6c757d',
+                        cursor: 'not-allowed'
                       }}
                     />
                     {editComponentErrors.componentCode && (
@@ -4405,13 +4905,13 @@ const CmSkuDetail: React.FC = () => {
                     />
                   </div>
 
-                  {/* Component Code */}
+                  {/* Component Category */}
                   <div className="col-md-6">
-                    <label>Component Code <InfoIcon info="Enter the unique code for this component." /></label>
+                    <label>Component Category <InfoIcon info="Select the category for this component." /></label>
                     <input
                       type="text"
-                      value={editComponentData.componentCode}
-                      onChange={(e) => setEditComponentData({ ...editComponentData, componentCode: e.target.value })}
+                      value={editComponentData.componentCategory}
+                      onChange={(e) => setEditComponentData({ ...editComponentData, componentCategory: e.target.value })}
                       className="form-control"
                       style={{ 
                         padding: '8px 12px',
@@ -4460,23 +4960,6 @@ const CmSkuDetail: React.FC = () => {
                 </div>
 
                 <div className="row" style={{ marginTop: '20px' }}>
-                  {/* Component Category */}
-                  <div className="col-md-6">
-                    <label>Component Category <InfoIcon info="Select the category for this component." /></label>
-                    <input
-                      type="text"
-                      value={editComponentData.componentCategory}
-                      onChange={(e) => setEditComponentData({ ...editComponentData, componentCategory: e.target.value })}
-                      className="form-control"
-                      style={{ 
-                        padding: '8px 12px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-
                   {/* Component Quantity */}
                   <div className="col-md-6">
                     <label>Component Quantity <InfoIcon info="Enter the quantity of this component." /></label>
@@ -5071,7 +5554,14 @@ const CmSkuDetail: React.FC = () => {
                                       borderBottom: '1px solid #e9ecef',
                                       color: '#333'
                                     }}>
-                                      {upload.categories.map(cat => `Category ${cat}`).join(', ')}
+                                      {upload.categoryName || upload.categories.map(cat => {
+                                        // Map category number to category name
+                                        const categoryName = cat === '1' ? 'Weight' : 
+                                                            cat === '2' ? 'Packaging Type' : 
+                                                            cat === '3' ? 'Material' : 
+                                                            cat === '4' ? 'Evidence' : `Category ${cat}`;
+                                        return categoryName;
+                                      }).join(', ')}
                                     </td>
                                     <td style={{ 
                                       padding: '16px 20px', 
@@ -6076,6 +6566,197 @@ const CmSkuDetail: React.FC = () => {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Data Modal */}
+      {showCopyDataModal && (
+        <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
+          <div className="modal-dialog modal-lg modal-dialog-scrollable">
+            <div className="modal-content">
+              <div className="modal-header" style={{ backgroundColor: 'rgb(48, 234, 3)', color: '#000', borderBottom: '2px solid #000', alignItems: 'center' }}>
+                <h5 className="modal-title" style={{ color: '#000', fontWeight: 700, flex: 1 }}>Copy Data</h5>
+                <button
+                  type="button"
+                  onClick={handleCopyDataModalClose}
+                  aria-label="Close"
+                  style={{
+                    background: '#000',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: 32,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    cursor: 'pointer',
+                    marginLeft: 8,
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="modal-body" style={{ background: '#fff', padding: '30px' }}>
+                <div className="container-fluid">
+                  <div className="row">
+                    <div className="col-12">
+                      <div style={{ 
+                        padding: '20px', 
+                        border: '2px dashed #30ea03', 
+                        borderRadius: '8px', 
+                        textAlign: 'center',
+                        backgroundColor: '#f8fff8'
+                      }}>
+                        <i className="ri-upload-cloud-2-line" style={{ fontSize: '48px', color: '#30ea03', marginBottom: '16px' }}></i>
+                        <h6 style={{ color: '#000', marginBottom: '12px', fontWeight: 600 }}>Upload File to Copy Data</h6>
+                        <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+                          Select a file to upload and copy data. Supported formats: Excel (.xlsx, .xls), CSV (.csv)
+                        </p>
+                        
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleFileUpload}
+                          style={{ display: 'none' }}
+                          id="file-upload"
+                        />
+                        <label
+                          htmlFor="file-upload"
+                          style={{
+                            backgroundColor: '#30ea03',
+                            color: '#000',
+                            padding: '12px 24px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            display: 'inline-block',
+                            border: 'none',
+                            fontSize: '14px'
+                          }}
+                        >
+                          <i className="ri-folder-open-line" style={{ marginRight: '8px' }}></i>
+                          Choose File
+                        </label>
+                        
+                        {uploadedFile && (
+                          <div style={{ 
+                            marginTop: '16px', 
+                            padding: '12px', 
+                            backgroundColor: '#e8f5e8', 
+                            borderRadius: '6px',
+                            border: '1px solid #30ea03'
+                          }}>
+                            <i className="ri-file-text-line" style={{ color: '#30ea03', marginRight: '8px' }}></i>
+                            <strong>{uploadedFile.name}</strong>
+                            <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px' }}>
+                              ({(uploadedFile.size / 1024).toFixed(1)} KB)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {uploadError && (
+                        <div style={{ 
+                          marginTop: '16px', 
+                          padding: '12px 16px', 
+                          backgroundColor: '#f8d7da', 
+                          color: '#721c24', 
+                          border: '1px solid #f5c6cb', 
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <i className="ri-error-warning-line" style={{ fontSize: '16px' }} />
+                          {uploadError}
+                        </div>
+                      )}
+                      
+                      {uploadSuccess && (
+                        <div style={{ 
+                          marginTop: '16px', 
+                          padding: '12px 16px', 
+                          backgroundColor: '#d4edda', 
+                          color: '#155724', 
+                          border: '1px solid #c3e6cb', 
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <i className="ri-check-line" style={{ fontSize: '16px' }} />
+                          {uploadSuccess}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ 
+                background: '#fff', 
+                borderTop: '2px solid #000', 
+                display: 'flex', 
+                justifyContent: 'flex-end',
+                padding: '20px 30px',
+                borderRadius: '0 0 12px 12px'
+              }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleCopyDataModalClose}
+                  style={{
+                    background: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginRight: '12px'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ 
+                    backgroundColor: 'rgb(48, 234, 3)', 
+                    border: 'none', 
+                    color: '#000', 
+                    minWidth: 120, 
+                    fontWeight: 600,
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    cursor: uploadLoading ? 'not-allowed' : 'pointer',
+                    opacity: uploadLoading ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onClick={handleCopyDataUpload}
+                  disabled={uploadLoading || !uploadedFile}
+                >
+                  {uploadLoading ? (
+                    <>
+                      <i className="ri-loader-4-line" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }} />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-upload-line" style={{ fontSize: '16px' }} />
+                      Upload & Copy Data
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
