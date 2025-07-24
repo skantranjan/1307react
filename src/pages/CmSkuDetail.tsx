@@ -1047,23 +1047,24 @@ const CmSkuDetail: React.FC = () => {
   const [addSkuPeriod, setAddSkuPeriod] = useState('');
   const [addSku, setAddSku] = useState('');
   const [addSkuDescription, setAddSkuDescription] = useState('');
-  const [addSkuDualSource, setAddSkuDualSource] = useState('');
+  const [addSkuType, setAddSkuType] = useState('internal'); // Default to internal
   const [addSkuReference, setAddSkuReference] = useState('');
   // const [addSkuQty, setAddSkuQty] = useState(''); // Hidden for now, may be used later
-  const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', server: '' });
+  const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
   const [addSkuSuccess, setAddSkuSuccess] = useState('');
   const [addSkuLoading, setAddSkuLoading] = useState(false);
 
   // Add SKU handler
   const handleAddSkuSave = async () => {
     // Client-side validation
-    let errors = { sku: '', skuDescription: '', period: '', server: '' };
+    let errors = { sku: '', skuDescription: '', period: '', skuType: '', server: '' };
     if (!addSku.trim()) errors.sku = 'A value is required for SKU code';
     if (!addSkuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
     if (!addSkuPeriod) errors.period = 'A value is required for the Period';
+    if (!addSkuType) errors.skuType = 'A value is required for SKU Type';
     setAddSkuErrors(errors);
     setAddSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period) return;
+    if (errors.sku || errors.skuDescription || errors.period || errors.skuType) return;
 
     // POST to API
     setAddSkuLoading(true);
@@ -1077,7 +1078,7 @@ const CmSkuDetail: React.FC = () => {
           sku_code: addSku,
           sku_description: addSkuDescription,
           period: addSkuPeriod,
-          dual_source: addSkuDualSource,
+          sku_type: addSkuType,
           sku_reference: addSkuReference,
           cm_code: cmCode,
           cm_description: cmDescription
@@ -1092,7 +1093,7 @@ const CmSkuDetail: React.FC = () => {
       }
       // Success
       setAddSkuSuccess('SKU added successfully!');
-      setAddSkuErrors({ sku: '', skuDescription: '', period: '', server: '' });
+      setAddSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
       // Call audit log API
       const auditResponse = await fetch('http://localhost:3000/sku-auditlog/add', {
         method: 'POST',
@@ -1121,7 +1122,7 @@ const CmSkuDetail: React.FC = () => {
         setAddSku('');
         setAddSkuDescription('');
         setAddSkuPeriod('');
-        setAddSkuDualSource('');
+        setAddSkuType('internal');
         setAddSkuReference('');
         // setAddSkuQty(''); // Hidden for now
         setAddSkuSuccess('');
@@ -1296,6 +1297,9 @@ const CmSkuDetail: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{id: string, categories: string[], categoryName?: string, files: File[]}>>([]);
   const [categoryError, setCategoryError] = useState<string>('');
+  
+  // Add state for CH Pack field
+  const [chPackValue, setChPackValue] = useState<string>('');
   
   // Edit Component Packaging Specification Evidence states
   const [editSelectedCategories, setEditSelectedCategories] = useState<string[]>([]);
@@ -4006,17 +4010,37 @@ const CmSkuDetail: React.FC = () => {
                       />
                       {addSkuErrors.skuDescription && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.skuDescription}</div>}
                     </div>
-                    {/* Dual-source SKU text field */}
+                    {/* SKU Type radio buttons */}
                     <div className="col-md-6">
-                      <label>Dual-source SKU</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={addSkuDualSource}
-                        onChange={e => setAddSkuDualSource(e.target.value)}
-                        placeholder="Enter Dual-source SKU"
-                        disabled={addSkuLoading}
-                      />
+                      <label>SKU Type <span style={{ color: 'red' }}>*</span></label>
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ display: 'flex', gap: '20px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 0 }}>
+                            <input
+                              type="radio"
+                              name="skuType"
+                              value="internal"
+                              checked={addSkuType === 'internal'}
+                              onChange={e => setAddSkuType(e.target.value)}
+                              disabled={addSkuLoading}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>Internal</span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 0 }}>
+                            <input
+                              type="radio"
+                              name="skuType"
+                              value="external"
+                              checked={addSkuType === 'external'}
+                              onChange={e => setAddSkuType(e.target.value)}
+                              disabled={addSkuLoading}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>External</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                     {/* SKU Reference text field */}
                     <div className="col-md-6">
@@ -4566,9 +4590,9 @@ const CmSkuDetail: React.FC = () => {
                       {addComponentErrors.componentDimensions && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.componentDimensions}</div>}
                     </div>
                     
-                    {/* Packaging Evidence (Optional) */}
+                    {/* Evidence of % of chemical recycled or bio-source */}
                     <div className="col-md-6">
-                      <label>Packaging Evidence <InfoIcon info="Upload files as evidence for packaging (optional)." /></label>
+                      <label>Evidence of % of chemical recycled or bio-source <InfoIcon info="Upload files as evidence for chemical recycled or bio-source content (optional)." /></label>
                       <input 
                         type="file" 
                         multiple
@@ -4612,6 +4636,36 @@ const CmSkuDetail: React.FC = () => {
                         }}>
                         Packaging Specification Evidence
                         </h6>
+                        
+                        {/* CH Pack Input Field */}
+                        <div className="row" style={{ marginBottom: '20px' }}>
+                          <div className="col-md-6">
+                            <label style={{ 
+                              fontWeight: '600', 
+                              color: '#333', 
+                              marginBottom: '8px',
+                              display: 'block',
+                              fontSize: '14px'
+                            }}>
+                              CH Pack <InfoIcon info="Enter the CH Pack value for this component." />
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={chPackValue}
+                              onChange={e => setChPackValue(e.target.value)}
+                              placeholder="Enter CH Pack value"
+                              style={{
+                                padding: '12px 16px',
+                                border: '1px solid #ddd',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                backgroundColor: '#fff',
+                                transition: 'border-color 0.3s ease'
+                              }}
+                            />
+                          </div>
+                        </div>
                         
                         <div className="row">
                           <div className="col-md-6">
