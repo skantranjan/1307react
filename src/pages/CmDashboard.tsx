@@ -1466,12 +1466,15 @@ const CmDashboard: React.FC = () => {
                 disabled={add3PMLoading}
               >
                 <option value="">Select Region</option>
-                <option value="North America">North America</option>
-                <option value="Europe">Europe</option>
-                <option value="Asia Pacific">Asia Pacific</option>
-                <option value="Latin America">Latin America</option>
-                <option value="Middle East & Africa">Middle East & Africa</option>
-                <option value="Global">Global</option>
+                <option value="ANZ">ANZ</option>
+                <option value="CHINA">CHINA</option>
+                <option value="EU">EU</option>
+                <option value="ISC">ISC</option>
+                <option value="Latam">Latam</option>
+                <option value="MEA">MEA</option>
+                <option value="NA">NA</option>
+                <option value="North Asia">North Asia</option>
+                <option value="SEAT">SEAT</option>
               </select>
             </div>
 
