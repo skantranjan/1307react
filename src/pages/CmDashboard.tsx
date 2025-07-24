@@ -221,48 +221,60 @@ const CmDashboard: React.FC = () => {
     fetchPeriods();
   }, []);
 
-  // Fetch regions from API
+  // Set regions with hardcoded data
   useEffect(() => {
-    const fetchRegions = async () => {
-      try {
-        const response = await fetch('http://localhost:3000/regions');
-        if (!response.ok) throw new Error('Failed to fetch regions');
-        const result = await response.json();
-        console.log('Regions API Response:', result);
-        if (result.success && Array.isArray(result.regions)) {
-          setRegions(result.regions);
-          console.log('Available regions:', result.regions);
-        } else {
-          setRegions([]);
-        }
-      } catch (err) {
-        console.error('Error fetching regions:', err);
-        setRegions([]);
-      }
-    };
-    fetchRegions();
+    const regionsData = [
+      'ANZ',
+      'CHINA',
+      'EU',
+      'ISC',
+      'Latam',
+      'MEA',
+      'NA',
+      'North Asia',
+      'SEAT'
+    ];
+    setRegions(regionsData);
+    console.log('Available regions:', regionsData);
   }, []);
 
-  // Fetch SRM Leads from API
+  // Set SRM Leads with hardcoded data
   useEffect(() => {
-    const fetchSrmLeads = async () => {
-      try {
-        const response = await fetch('http://localhost:3000/srm-leads');
-        if (!response.ok) throw new Error('Failed to fetch SRM Leads');
-        const result = await response.json();
-        console.log('SRM Leads API Response:', result);
-        if (result.success && Array.isArray(result.srmLeads)) {
-          setSrmLeads(result.srmLeads);
-          console.log('Available SRM Leads:', result.srmLeads);
-        } else {
-          setSrmLeads([]);
-        }
-      } catch (err) {
-        console.error('Error fetching SRM Leads:', err);
-        setSrmLeads([]);
-      }
-    };
-    fetchSrmLeads();
+    const srmLeadsData = [
+      'Alejandro Concha',
+      'Bart Kawa',
+      'Chris Alziar',
+      'David Patterson',
+      'David Wang',
+      'Elizabeth Ramirez',
+      'Eric Schock',
+      'Fabrice Dollet',
+      'Grace Adekanmbi',
+      'Grace Adekanmbirthi',
+      'Jennifer Wo',
+      'Johnnie Walker',
+      'Juan Acero',
+      'Kumi Mino',
+      'Mandeep Bhatia',
+      'Marcel Widmer',
+      'Marcus Baer',
+      'Marina Shlyaptseva',
+      'Mark Jones',
+      'Matthias Rabaey',
+      'Maura Scalon',
+      'Maura Scanlon',
+      'Mayra Garcia',
+      'Moegamat Ganief Creighton',
+      'Moises Franco',
+      'Monica Mayorga',
+      'Rahul Kak',
+      'Sonia Munoz',
+      'Syed Mohsin Mazhar',
+      'Tan Ping Ping',
+      'Tracey Adams'
+    ];
+    setSrmLeads(srmLeadsData);
+    console.log('Available SRM Leads:', srmLeadsData);
   }, []);
 
   // Set current period as default and apply filter when periods are loaded
