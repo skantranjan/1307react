@@ -19,6 +19,16 @@ interface CmCode {
   signoff_status?: string | null;
   document_url?: string | null;
   periods?: string | null; // Comma-separated period IDs like "2,3"
+  region?: string | null;
+  srm_lead?: string | null;
+  is_active?: boolean;
+}
+
+// Interface for new 3PM data
+interface New3PMData {
+  cm_code: string;
+  cm_description: string;
+  region: string;
 }
 
 // Interface for Period data structure
@@ -56,7 +66,11 @@ const CmDashboard: React.FC = () => {
   const [selectedCmCodes, setSelectedCmCodes] = useState<string[]>([]);
   const [selectedSignoffStatuses, setSelectedSignoffStatuses] = useState<string[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [selectedSrmLeads, setSelectedSrmLeads] = useState<string[]>([]);
   const [periods, setPeriods] = useState<Array<{id: number, period: string}>>([]);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [srmLeads, setSrmLeads] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   // Signoff modal state
@@ -67,11 +81,23 @@ const CmDashboard: React.FC = () => {
   const [signoffError, setSignoffError] = useState<string | null>(null);
   const [selectedSignoffPeriod, setSelectedSignoffPeriod] = useState<string>('');
 
+  // Add 3PM modal state
+  const [showAdd3PMModal, setShowAdd3PMModal] = useState(false);
+  const [new3PMData, setNew3PMData] = useState<New3PMData>({
+    cm_code: '',
+    cm_description: '',
+    region: ''
+  });
+  const [add3PMLoading, setAdd3PMLoading] = useState(false);
+  const [add3PMError, setAdd3PMError] = useState<string | null>(null);
+
   const [appliedFilters, setAppliedFilters] = useState<{
     cmCodes: string[];
     signoffStatuses: string[];
     period: string;
-  }>({ cmCodes: [], signoffStatuses: [], period: '' });
+    region: string[];
+    srmLead: string[];
+  }>({ cmCodes: [], signoffStatuses: [], period: '', region: [], srmLead: [] });
 
   const { instance, accounts } = useMsal();
   const navigate = useNavigate();
@@ -195,6 +221,50 @@ const CmDashboard: React.FC = () => {
     fetchPeriods();
   }, []);
 
+  // Fetch regions from API
+  useEffect(() => {
+    const fetchRegions = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/regions');
+        if (!response.ok) throw new Error('Failed to fetch regions');
+        const result = await response.json();
+        console.log('Regions API Response:', result);
+        if (result.success && Array.isArray(result.regions)) {
+          setRegions(result.regions);
+          console.log('Available regions:', result.regions);
+        } else {
+          setRegions([]);
+        }
+      } catch (err) {
+        console.error('Error fetching regions:', err);
+        setRegions([]);
+      }
+    };
+    fetchRegions();
+  }, []);
+
+  // Fetch SRM Leads from API
+  useEffect(() => {
+    const fetchSrmLeads = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/srm-leads');
+        if (!response.ok) throw new Error('Failed to fetch SRM Leads');
+        const result = await response.json();
+        console.log('SRM Leads API Response:', result);
+        if (result.success && Array.isArray(result.srmLeads)) {
+          setSrmLeads(result.srmLeads);
+          console.log('Available SRM Leads:', result.srmLeads);
+        } else {
+          setSrmLeads([]);
+        }
+      } catch (err) {
+        console.error('Error fetching SRM Leads:', err);
+        setSrmLeads([]);
+      }
+    };
+    fetchSrmLeads();
+  }, []);
+
   // Set current period as default and apply filter when periods are loaded
   useEffect(() => {
     if (periods.length > 0 && !selectedPeriod) {
@@ -224,14 +294,18 @@ const CmDashboard: React.FC = () => {
     console.log('Applying additional filters:', {
       cmCodes: selectedCmCodes,
       signoffStatuses: selectedSignoffStatuses,
-      period: selectedPeriod
+      period: selectedPeriod,
+      region: selectedRegions,
+      srmLead: selectedSrmLeads
     });
     
     // Apply the selected filters (including current period)
     setAppliedFilters({
       cmCodes: selectedCmCodes,
       signoffStatuses: selectedSignoffStatuses,
-      period: selectedPeriod
+      period: selectedPeriod,
+      region: selectedRegions,
+      srmLead: selectedSrmLeads
     });
     
     // Reset to first page when applying filters
@@ -248,12 +322,20 @@ const CmDashboard: React.FC = () => {
     if (selectedPeriod) {
       console.log(`Filtering by Period: ${selectedPeriod}`);
     }
+    if (selectedRegions.length > 0) {
+      console.log(`Filtering by Regions: ${selectedRegions.join(', ')}`);
+    }
+    if (selectedSrmLeads.length > 0) {
+      console.log(`Filtering by SRM Leads: ${selectedSrmLeads.join(', ')}`);
+    }
   };
 
   const handleReset = () => {
     // Clear all filters except period
     setSelectedCmCodes([]);
     setSelectedSignoffStatuses([]);
+    setSelectedRegions([]);
+    setSelectedSrmLeads([]);
     
     // Set current period as default and apply it as filter
     if (periods.length > 0) {
@@ -266,10 +348,10 @@ const CmDashboard: React.FC = () => {
       setSelectedPeriod(currentPeriod.id.toString());
       
       // Apply current period filter
-      setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: currentPeriod.id.toString() });
+      setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: currentPeriod.id.toString(), region: [], srmLead: [] });
     } else {
       setSelectedPeriod('');
-      setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: '' });
+      setAppliedFilters({ cmCodes: [], signoffStatuses: [], period: '', region: [], srmLead: [] });
     }
     
     setCurrentPage(1);
@@ -357,6 +439,22 @@ const CmDashboard: React.FC = () => {
       console.log(`Filtered by Period ID: ${appliedFilters.period}. Before: ${beforePeriodFilter}, After: ${filtered.length}`);
     }
 
+    // Filter by Region
+    if (appliedFilters.region.length > 0) {
+      filtered = filtered.filter(item => 
+        item.region && appliedFilters.region.includes(item.region)
+      );
+      console.log(`Filtered by Regions: ${appliedFilters.region.join(', ')}. Results: ${filtered.length}`);
+    }
+
+    // Filter by SRM Lead
+    if (appliedFilters.srmLead.length > 0) {
+      filtered = filtered.filter(item => 
+        item.srm_lead && appliedFilters.srmLead.includes(item.srm_lead)
+      );
+      console.log(`Filtered by SRM Leads: ${appliedFilters.srmLead.join(', ')}. Results: ${filtered.length}`);
+    }
+
     console.log(`Final filtered results: ${filtered.length} items`);
     return filtered;
   }, [cmCodes, appliedFilters]);
@@ -383,6 +481,8 @@ const CmDashboard: React.FC = () => {
     const exportData = currentData.map(row => ({
       '3PM Code': row.cm_code,
       '3PM Description': row.cm_description,
+      'Region': row.region || '',
+      'SRM Lead': row.srm_lead || '',
       'Signoff Status': row.signoff_status === 'signed'
         ? 'Signed'
         : row.signoff_status === 'rejected'
@@ -391,7 +491,8 @@ const CmDashboard: React.FC = () => {
         ? 'Pending'
         : '',
       'Signoff By': row.signoff_by || '',
-      'Signoff Date': row.signoff_date || ''
+      'Signoff Date': row.signoff_date || '',
+      'Is Active': row.is_active ? 'Yes' : 'No'
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -478,6 +579,151 @@ const CmDashboard: React.FC = () => {
     setSignoffError(null);
   };
 
+  // Handle open Add 3PM modal
+  const handleOpenAdd3PMModal = () => {
+    setShowAdd3PMModal(true);
+    setNew3PMData({
+      cm_code: '',
+      cm_description: '',
+      region: ''
+    });
+    setAdd3PMError(null);
+  };
+
+  // Handle close Add 3PM modal
+  const handleCloseAdd3PMModal = () => {
+    setShowAdd3PMModal(false);
+    setNew3PMData({
+      cm_code: '',
+      cm_description: '',
+      region: ''
+    });
+    setAdd3PMError(null);
+  };
+
+  // Handle Add 3PM form input changes
+  const handleAdd3PMInputChange = (field: keyof New3PMData, value: string) => {
+    setNew3PMData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle Add 3PM form submission
+  const handleAdd3PMSave = async () => {
+    try {
+      setAdd3PMLoading(true);
+      setAdd3PMError(null);
+
+      // Validate required fields
+      if (!new3PMData.cm_code.trim()) {
+        throw new Error('3PM Code is required');
+      }
+      if (!new3PMData.cm_description.trim()) {
+        throw new Error('3PM Description is required');
+      }
+      if (!new3PMData.region.trim()) {
+        throw new Error('Region is required');
+      }
+
+      // Check if 3PM code already exists
+      const existingCode = cmCodes.find(cm => cm.cm_code.toLowerCase() === new3PMData.cm_code.toLowerCase());
+      if (existingCode) {
+        throw new Error('3PM Code already exists');
+      }
+
+      // TODO: Replace with actual API call
+      // const response = await fetch('http://localhost:3000/cm-codes', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify(new3PMData)
+      // });
+
+      // if (!response.ok) {
+      //   throw new Error('Failed to add 3PM code');
+      // }
+
+      // For now, simulate success
+      console.log('Adding new 3PM:', new3PMData);
+      
+      // Close modal and refresh data
+      handleCloseAdd3PMModal();
+      
+      // Refresh the CM codes list
+      const fetchData = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch('http://localhost:3000/cm-codes', {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const result: ApiResponse = await response.json();
+          
+          if (result.success) {
+            setCmCodes(result.data);
+          } else {
+            throw new Error('API returned unsuccessful response');
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch CM codes');
+          console.error('Error fetching CM codes:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+      
+    } catch (err) {
+      setAdd3PMError(err instanceof Error ? err.message : 'Failed to add 3PM code');
+      console.error('Error adding 3PM:', err);
+    } finally {
+      setAdd3PMLoading(false);
+    }
+  };
+
+  // Handle is_active status change
+  const handleIsActiveChange = async (cmCode: string, currentStatus: boolean) => {
+    try {
+      // Optimistically update the UI
+      setCmCodes(prev => prev.map(cm => 
+        cm.cm_code === cmCode ? { ...cm, is_active: !currentStatus } : cm
+      ));
+
+      // Make API call to update the status
+      const response = await fetch(`http://localhost:3000/cm-codes/${encodeURIComponent(cmCode)}/toggle-active`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+
+      if (!response.ok) {
+        // Revert the change if API call fails
+        setCmCodes(prev => prev.map(cm => 
+          cm.cm_code === cmCode ? { ...cm, is_active: currentStatus } : cm
+        ));
+        throw new Error('Failed to update status');
+      }
+
+      console.log(`Successfully updated is_active status for ${cmCode} to ${!currentStatus}`);
+    } catch (err) {
+      console.error('Error updating is_active status:', err);
+      // Revert the change if API call fails
+      setCmCodes(prev => prev.map(cm => 
+        cm.cm_code === cmCode ? { ...cm, is_active: currentStatus } : cm
+      ));
+    }
+  };
 
 
   // Filter signoff details - since we're using one API, we just show the data as returned
@@ -487,16 +733,98 @@ const CmDashboard: React.FC = () => {
     <Layout>
       {loading && <Loader />}
       <div className="mainInternalPages" style={{ opacity: loading ? 0.5 : 1 }}>
-        <div className="commonTitle">
-          <div className="icon">
-            <i className="ri-table-line"></i>
+        <div className="commonTitle" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="icon">
+              <i className="ri-table-line"></i>
+            </div>
+            <h1>3PM Dashboard</h1>
           </div>
-          <h1>3PM Dashboard</h1>
+          <button
+            onClick={handleOpenAdd3PMModal}
+            style={{
+              background: '#30ea03',
+              color: '#000',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '10px 20px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#28c003';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#30ea03';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <i className="ri-add-line"></i>
+            Add 3PM
+          </button>
         </div>
         <div className="row">
           <div className="col-sm-12">
             <div className="filters">
               <div className="filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'end', flexWrap: 'wrap', marginBottom: 12 }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div className="fBold" style={{ marginBottom: 4 }}>Period</div>
+                  <select
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                    className="filter-control"
+                    style={{ width: '100%', height: '38px', padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', backgroundColor: '#fff' }}
+                    disabled={loading}
+                  >
+                    <option value="">Select Period</option>
+                    {periods.map(period => (
+                      <option key={period.id} value={period.id.toString()}>
+                        {period.period}
+                      </option>
+                    ))}
+                  </select>
+                  {loading && <small style={{color: '#666'}}>Loading periods...</small>}
+                  {error && <small style={{color: 'red'}}>Error: {error}</small>}
+                </div>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div className="fBold" style={{ marginBottom: 4 }}>Region</div>
+                  <MultiSelect
+                    options={regions.map(region => ({
+                      value: region,
+                      label: region.charAt(0).toUpperCase() + region.slice(1)
+                    }))}
+                    selectedValues={selectedRegions}
+                    onSelectionChange={setSelectedRegions}
+                    placeholder="Select Regions..."
+                    disabled={loading}
+                    loading={loading}
+                  />
+                  {loading && <small style={{color: '#666'}}>Loading regions...</small>}
+                  {error && <small style={{color: 'red'}}>Error: {error}</small>}
+                </div>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div className="fBold" style={{ marginBottom: 4 }}>SRM Lead</div>
+                  <MultiSelect
+                    options={srmLeads.map(srmLead => ({
+                      value: srmLead,
+                      label: srmLead.charAt(0).toUpperCase() + srmLead.slice(1)
+                    }))}
+                    selectedValues={selectedSrmLeads}
+                    onSelectionChange={setSelectedSrmLeads}
+                    placeholder="Select SRM Leads..."
+                    disabled={loading}
+                    loading={loading}
+                  />
+                  {loading && <small style={{color: '#666'}}>Loading SRM Leads...</small>}
+                  {error && <small style={{color: 'red'}}>Error: {error}</small>}
+                </div>
                 <div style={{ flex: 2, minWidth: 220 }}>
                   <div className="fBold" style={{ marginBottom: 4 }}>3PM Code - Description</div>
                   <MultiSelect
@@ -530,25 +858,6 @@ const CmDashboard: React.FC = () => {
                     loading={loading}
                   />
                   {loading && <small style={{color: '#666'}}>Loading signoff statuses...</small>}
-                  {error && <small style={{color: 'red'}}>Error: {error}</small>}
-                </div>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div className="fBold" style={{ marginBottom: 4 }}>Period</div>
-                  <select
-                    value={selectedPeriod}
-                    onChange={(e) => setSelectedPeriod(e.target.value)}
-                    className="filter-control"
-                    style={{ width: '100%', height: '38px', padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', backgroundColor: '#fff' }}
-                    disabled={loading}
-                  >
-                    <option value="">Select Period</option>
-                    {periods.map(period => (
-                      <option key={period.id} value={period.id.toString()}>
-                        {period.period}
-                      </option>
-                    ))}
-                  </select>
-                  {loading && <small style={{color: '#666'}}>Loading periods...</small>}
                   {error && <small style={{color: 'red'}}>Error: {error}</small>}
                 </div>
                 <div style={{ minWidth: 120, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
@@ -611,9 +920,12 @@ const CmDashboard: React.FC = () => {
                 <tr>
                   <th>3PM Code</th>
                   <th>3PM Description</th>
+                  <th>Region</th>
+                  <th>SRM Lead</th>
                   <th>Signoff Status</th>
                   <th>Signoff By/Rejected By</th>
                   <th>Signoff Date/ Rejected Date</th>
+                  <th style={{ width: '80px', padding: '8px 4px', textAlign: 'center' }}>Is Active</th>
                   <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center' }}>Document</th>
                   <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px' }}>Add/View SKU</th>
                 </tr>
@@ -621,7 +933,7 @@ const CmDashboard: React.FC = () => {
               <tbody>
                 {currentData.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '20px' }}>
+                    <td colSpan={10} style={{ textAlign: 'center', padding: '20px' }}>
                       No data available
                     </td>
                   </tr>
@@ -630,6 +942,8 @@ const CmDashboard: React.FC = () => {
                     <tr key={index}>
                       <td>{row.cm_code}</td>
                       <td>{row.cm_description}</td>
+                      <td>{row.region || '-'}</td>
+                      <td>{row.srm_lead || '-'}</td>
                       <td
                         className={
                           row.signoff_status === 'signed'
@@ -657,6 +971,22 @@ const CmDashboard: React.FC = () => {
                       </td>
                       <td>
                         {row.signoff_status === 'signed' ? row.signoff_date : '-'}
+                      </td>
+                      <td style={{ padding: '8px 4px', width: '80px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                          <input
+                            type="checkbox"
+                            checked={row.is_active || false}
+                            onChange={() => handleIsActiveChange(row.cm_code, row.is_active || false)}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              cursor: 'pointer',
+                              accentColor: '#30ea03'
+                            }}
+                            title={row.is_active ? 'Deactivate 3PM' : 'Activate 3PM'}
+                          />
+                        </div>
                       </td>
                       <td style={{ padding: '8px 4px', width: '60px', textAlign: 'center', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
@@ -963,6 +1293,250 @@ const CmDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Add 3PM Modal */}
+      {showAdd3PMModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div className="add-3pm-modal" style={{
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+            width: '90%',
+            maxWidth: '500px',
+            padding: '30px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            position: 'relative',
+            border: '2px solid #e9ecef'
+          }}>
+            {/* Close Button */}
+            <button
+              onClick={handleCloseAdd3PMModal}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#000',
+                border: 'none',
+                fontSize: '20px',
+                color: '#fff',
+                cursor: 'pointer',
+                width: '35px',
+                height: '35px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease',
+                zIndex: 1000
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#333';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#000';
+              }}
+            >
+              <i className="ri-close-line"></i>
+            </button>
+            
+            <h2 style={{ 
+              marginTop: 0, 
+              marginBottom: '25px', 
+              color: '#333', 
+              paddingRight: '40px',
+              fontSize: '24px',
+              fontWeight: '600'
+            }}>
+              Add New 3PM
+            </h2>
+            
+            {add3PMLoading && <Loader />}
+            {add3PMError && (
+              <div style={{
+                background: '#f8d7da',
+                color: '#721c24',
+                padding: '12px',
+                borderRadius: '4px',
+                marginBottom: '20px',
+                border: '1px solid #f5c6cb'
+              }}>
+                <i className="ri-error-warning-line" style={{ marginRight: '8px' }}></i>
+                {add3PMError}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                color: '#333',
+                fontSize: '14px'
+              }}>
+                3PM Code <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={new3PMData.cm_code}
+                onChange={(e) => handleAdd3PMInputChange('cm_code', e.target.value)}
+                placeholder="Enter 3PM Code"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: '#fff'
+                }}
+                disabled={add3PMLoading}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                color: '#333',
+                fontSize: '14px'
+              }}>
+                3PM Description <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <textarea
+                value={new3PMData.cm_description}
+                onChange={(e) => handleAdd3PMInputChange('cm_description', e.target.value)}
+                placeholder="Enter 3PM Description"
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: '#fff',
+                  resize: 'vertical'
+                }}
+                disabled={add3PMLoading}
+              />
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                color: '#333',
+                fontSize: '14px'
+              }}>
+                Region <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <select
+                value={new3PMData.region}
+                onChange={(e) => handleAdd3PMInputChange('region', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: '#fff'
+                }}
+                disabled={add3PMLoading}
+              >
+                <option value="">Select Region</option>
+                <option value="North America">North America</option>
+                <option value="Europe">Europe</option>
+                <option value="Asia Pacific">Asia Pacific</option>
+                <option value="Latin America">Latin America</option>
+                <option value="Middle East & Africa">Middle East & Africa</option>
+                <option value="Global">Global</option>
+              </select>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={handleCloseAdd3PMModal}
+                style={{
+                  background: '#6c757d',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+                disabled={add3PMLoading}
+                onMouseEnter={(e) => {
+                  if (!add3PMLoading) e.currentTarget.style.background = '#5a6268';
+                }}
+                onMouseLeave={(e) => {
+                  if (!add3PMLoading) e.currentTarget.style.background = '#6c757d';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdd3PMSave}
+                style={{
+                  background: '#30ea03',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                disabled={add3PMLoading}
+                onMouseEnter={(e) => {
+                  if (!add3PMLoading) {
+                    e.currentTarget.style.background = '#28c003';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!add3PMLoading) {
+                    e.currentTarget.style.background = '#30ea03';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {add3PMLoading ? (
+                  <>
+                    <i className="ri-loader-4-line spinning"></i>
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <i className="ri-save-line"></i>
+                    Add 3PM
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         .filter-bar .multi-select-container, .filter-bar .multi-select-trigger, .filter-bar .filter-control {
           min-height: 38px !important;
@@ -978,14 +1552,14 @@ const CmDashboard: React.FC = () => {
           margin-bottom: 4px;
         }
         /* Responsive filter bar */
-        @media (max-width: 900px) {
+        @media (max-width: 1200px) {
           .filter-bar { flex-direction: column !important; gap: 12px !important; }
           .filter-bar > div { width: 100% !important; min-width: 0 !important; }
         }
         /* Responsive table: horizontal scroll on small screens */
         @media (max-width: 900px) {
           .table-responsive { overflow-x: auto !important; }
-          .tableCommon table { min-width: 700px !important; }
+          .tableCommon table { min-width: 1000px !important; }
         }
         @media (max-width: 600px) {
           .mainInternalPages { padding: 4px !important; }
@@ -998,6 +1572,33 @@ const CmDashboard: React.FC = () => {
             width: 98% !important;
             max-width: 98vw !important;
             padding: 10px !important;
+          }
+        }
+        /* Responsive Add 3PM button */
+        @media (max-width: 768px) {
+          .commonTitle {
+            flex-direction: column !important;
+            gap: 15px !important;
+            align-items: stretch !important;
+          }
+          .commonTitle > div:first-child {
+            justify-content: center !important;
+          }
+          .commonTitle button {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+        }
+        /* Responsive Add 3PM modal */
+        @media (max-width: 600px) {
+          .add-3pm-modal {
+            width: 95% !important;
+            max-width: 95vw !important;
+            padding: 20px !important;
+          }
+          .add-3pm-modal h2 {
+            font-size: 20px !important;
+            padding-right: 30px !important;
           }
         }
       `}</style>

@@ -119,6 +119,8 @@ const CmSkuDetail: React.FC = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
+  const [copyFromPeriod, setCopyFromPeriod] = useState<string>('');
+  const [copyToPeriod, setCopyToPeriod] = useState<string>('');
 
   // New state for open index
   const [openIndex, setOpenIndex] = useState<number | null>(0); // First panel open by default
@@ -146,6 +148,9 @@ const CmSkuDetail: React.FC = () => {
 
   // State for material type filtering
   const [selectedMaterialType, setSelectedMaterialType] = useState<string>('packaging'); // Default to packaging (ID 1)
+
+  // State for SKU tabs (Active/Inactive)
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
 
   // State for component editing modal
   const [showEditComponentModal, setShowEditComponentModal] = useState(false);
@@ -181,7 +186,7 @@ const CmSkuDetail: React.FC = () => {
   const [editComponentSuccess, setEditComponentSuccess] = useState('');
 
   // State for applied filters
-  const [appliedFilters, setAppliedFilters] = useState<{ years: string[]; skuDescriptions: string[] }>({ years: [], skuDescriptions: [] });
+  const [appliedFilters, setAppliedFilters] = useState<{ years: string[]; skuDescriptions: string[]; componentCodes: string[] }>({ years: [], skuDescriptions: [], componentCodes: [] });
 
   // Filtered SKUs based on applied filters
   const filteredSkuData = skuData.filter(sku => {
@@ -195,12 +200,20 @@ const CmSkuDetail: React.FC = () => {
       appliedFilters.skuDescriptions.length === 0 ||
       appliedFilters.skuDescriptions.includes(sku.sku_description);
 
-    return yearMatch && descMatch;
+    // Filter by Component Code (check if any component in this SKU matches the selected component codes)
+    const componentMatch =
+      appliedFilters.componentCodes.length === 0 ||
+      (componentDetails[sku.sku_code] && 
+       componentDetails[sku.sku_code].some((component: any) => 
+         appliedFilters.componentCodes.includes(component.component_code)
+       ));
+
+    return yearMatch && descMatch && componentMatch;
   });
 
   // Search button handler
   const handleSearch = () => {
-    setAppliedFilters({ years: selectedYears, skuDescriptions: selectedSkuDescriptions });
+    setAppliedFilters({ years: selectedYears, skuDescriptions: selectedSkuDescriptions, componentCodes: selectedComponentCodes });
     setOpenIndex(0); // Optionally reset to first panel
   };
 
@@ -258,12 +271,13 @@ const CmSkuDetail: React.FC = () => {
     const currentPeriodOption = getCurrentPeriod();
     if (currentPeriodOption) {
       setSelectedYears([currentPeriodOption.id]);
-      setAppliedFilters({ years: [currentPeriodOption.id], skuDescriptions: [] });
+              setAppliedFilters({ years: [currentPeriodOption.id], skuDescriptions: [], componentCodes: [] });
     } else {
       setSelectedYears([]);
-      setAppliedFilters({ years: [], skuDescriptions: [] });
+              setAppliedFilters({ years: [], skuDescriptions: [], componentCodes: [] });
     }
     setSelectedSkuDescriptions([]);
+    setSelectedComponentCodes([]);
     setOpenIndex(0);
   };
 
@@ -517,6 +531,31 @@ const CmSkuDetail: React.FC = () => {
     };
     fetchDescriptions();
   }, []);
+
+  // Component codes with dummy data
+  const [componentCodes, setComponentCodes] = useState<string[]>([
+    'COMP001',
+    'COMP002', 
+    'COMP003',
+    'COMP004',
+    'COMP005',
+    'COMP006',
+    'COMP007',
+    'COMP008',
+    'COMP009',
+    'COMP010',
+    'RAW001',
+    'RAW002',
+    'RAW003',
+    'PACK001',
+    'PACK002',
+    'PACK003',
+    'MAT001',
+    'MAT002',
+    'MAT003',
+    'MAT004'
+  ]);
+  const [selectedComponentCodes, setSelectedComponentCodes] = useState<string[]>([]);
 
   // Add state for material types
   const [materialTypes, setMaterialTypes] = useState<Array<{id: number, item_name: string, item_order: number, is_active: boolean, created_by: string, created_date: string}>>([]);
@@ -1120,8 +1159,11 @@ const CmSkuDetail: React.FC = () => {
 
   // Handler to open Edit SKU modal (to be called on Edit SKU button click)
   const handleEditSkuOpen = (sku: SkuData) => {
+    // Convert period ID to period name
+    const periodName = getPeriodTextFromId(sku.period);
+    
     setEditSkuData({
-      period: sku.period || '',
+      period: periodName || '',
       sku: sku.sku_code || '',
       skuDescription: sku.sku_description || '',
       qty: sku.purchased_quantity != null ? String(sku.purchased_quantity) : '',
@@ -1820,6 +1862,22 @@ const CmSkuDetail: React.FC = () => {
   };
 
   const handleCopyDataUpload = async () => {
+    // Validate period selections
+    if (!copyFromPeriod) {
+      setUploadError('Please select a From Period');
+      return;
+    }
+    
+    if (!copyToPeriod) {
+      setUploadError('Please select a To Period');
+      return;
+    }
+    
+    if (copyFromPeriod === copyToPeriod) {
+      setUploadError('From Period and To Period cannot be the same');
+      return;
+    }
+
     if (!uploadedFile) {
       setUploadError('Please select a file to upload');
       return;
@@ -1835,6 +1893,8 @@ const CmSkuDetail: React.FC = () => {
       formData.append('file', uploadedFile);
       formData.append('cmCode', cmCode || '');
       formData.append('cmDescription', cmDescription);
+      formData.append('fromPeriod', copyFromPeriod);
+      formData.append('toPeriod', copyToPeriod);
 
       // Here you would make the API call to upload the file
       // For now, we'll simulate the upload process
@@ -1862,6 +1922,8 @@ const CmSkuDetail: React.FC = () => {
     setUploadedFile(null);
     setUploadError('');
     setUploadSuccess('');
+    setCopyFromPeriod('');
+    setCopyToPeriod('');
   };
 
   const [materialTypeOptions, setMaterialTypeOptions] = useState<{id: number, item_name: string}[]>([]);
@@ -2381,26 +2443,29 @@ const CmSkuDetail: React.FC = () => {
               <ul>
                 <li>
                   <div className="fBold">Period</div>
-                  <select className="form-control"
-                    value={selectedYears.length > 0 ? selectedYears[0] : ''}
-                    onChange={(e) => setSelectedYears(e.target.value ? [e.target.value] : [])}
-                    style={{
-                      width: '100%',
-                      padding: '5px 12px 3px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '13px',
-                      backgroundColor: '#fff'
-                    }}
-                    disabled={years.length === 0}
-                  >
-                    <option value="">Select Period</option>
-                    {years.map((year, index) => (
-                      <option key={year.id} value={year.id}>
-                        {year.period}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="form-control">
+                    <select
+                      value={selectedYears.length > 0 ? selectedYears[0] : ''}
+                      onChange={(e) => setSelectedYears(e.target.value ? [e.target.value] : [])}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: '#fff',
+                        border: 'none',
+                        outline: 'none'
+                      }}
+                      disabled={years.length === 0}
+                    >
+                      <option value="">Select Period</option>
+                      {years.map((year, index) => (
+                        <option key={year.id} value={year.id}>
+                          {year.period}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </li>
               <li>
   <div className="fBold">SKU Code-Description</div>
@@ -2417,6 +2482,21 @@ const CmSkuDetail: React.FC = () => {
     />
   </div>
 </li>
+              <li>
+  <div className="fBold">Component Code</div>
+  <div className="form-control">
+    <MultiSelect 
+      options={componentCodes
+        .filter(code => code && typeof code === 'string' && code.trim() !== '')
+        .map(code => ({ value: code, label: code }))}
+      selectedValues={selectedComponentCodes}
+      onSelectionChange={setSelectedComponentCodes}
+      placeholder="Select Component Code..."
+      disabled={componentCodes.length === 0}
+      loading={componentCodes.length === 0}
+    />
+  </div>
+</li>
 
                 <li>
                   <button className="btnCommon btnGreen filterButtons" onClick={handleSearch} disabled={loading}>
@@ -2430,47 +2510,55 @@ const CmSkuDetail: React.FC = () => {
                     <i className="ri-refresh-line"></i>
                   </button>
                 </li></ul>
-                <ul style={{ justifyContent: 'end', paddingTop: '0' }}>
-                <li style={{ alignSelf: 'fexEnd' }}>
-                  <button
-                    className="btnCommon btnGreen filterButtons"
-                    style={{ minWidth: 120, fontWeight: 600, marginRight: 10, marginTop: 0 }}
-                    onClick={() => setShowSkuModal(true)}
-                  >
-                    <span>Add SKU</span> <i className="ri-add-circle-line"></i>
-                  </button>
-                  <button
-                    className="btnCommon btnGreen filterButtons"
-                    style={{ minWidth: 120, fontWeight: 600, marginRight: 10, marginTop: 0 }}
-                    onClick={() => setShowCopyDataModal(true)}
-                  >
-                    <span>Copy Data</span> <i className="ri-file-copy-line"></i>
-                  </button>
-                  <button
-                    className="btnCommon btnGreen filterButtons"
-                    style={{ minWidth: 120, fontWeight: 600, marginRight: 10, marginTop: 0 }}
-                    onClick={handleExportToExcel}
-                  >
-                   <span> Export to Excel</span> <i className="ri-file-excel-2-line"></i>
-                  </button>
-                   <button
-                    className="btnCommon btnGreen filterButtons" 
-                    style={{ 
-                      minWidth: 120,
-                      display: 'flex',
-                      alignItems: 'center',
-                                           fontWeight: 600, 
-                      marginTop: 0
-                    }}
-                    onClick={() => {
-                      navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
-                    }}
-                  >
-                    <i className="ri-file-pdf-2-line" style={{ fontSize: 16 }}></i>
-                    <span>Generate PDF</span><i className="ri-file-pdf-line"></i>
-                  </button>
-                </li>
-              </ul>
+                <ul style={{ justifyContent: 'end', paddingTop: '0', display: 'flex', flexWrap: 'nowrap', gap: '8px' }}>
+                  <li style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                      className="btnCommon btnGreen filterButtons"
+                      style={{ minWidth: 110, fontWeight: 600, marginRight: 0, marginTop: 0, fontSize: '13px', padding: '8px 12px' }}
+                      onClick={() => setShowSkuModal(true)}
+                    >
+                      <span>Add SKU</span> <i className="ri-add-circle-line"></i>
+                    </button>
+                  </li>
+                  <li style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                      className="btnCommon btnGreen filterButtons"
+                      style={{ minWidth: 110, fontWeight: 600, marginRight: 0, marginTop: 0, fontSize: '13px', padding: '8px 12px' }}
+                      onClick={() => setShowCopyDataModal(true)}
+                    >
+                      <span>Copy Data</span> <i className="ri-file-copy-line"></i>
+                    </button>
+                  </li>
+                  <li style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                      className="btnCommon btnGreen filterButtons"
+                      style={{ minWidth: 110, fontWeight: 600, marginRight: 0, marginTop: 0, fontSize: '13px', padding: '8px 12px' }}
+                      onClick={handleExportToExcel}
+                    >
+                     <span>Export to Excel</span> <i className="ri-file-excel-2-line"></i>
+                    </button>
+                  </li>
+                  <li style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                      className="btnCommon btnGreen filterButtons" 
+                      style={{ 
+                        minWidth: 110,
+                        display: 'flex',
+                        alignItems: 'center',
+                        fontWeight: 600, 
+                        marginTop: 0,
+                        fontSize: '13px',
+                        padding: '8px 12px'
+                      }}
+                      onClick={() => {
+                        navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
+                      }}
+                    >
+                      <i className="ri-file-pdf-2-line" style={{ fontSize: 14, marginRight: '4px' }}></i>
+                      <span>Generate PDF</span>
+                    </button>
+                  </li>
+                </ul>
             </div>
           </div>
         </div>
@@ -2487,21 +2575,68 @@ const CmSkuDetail: React.FC = () => {
               </div>
             ) : (
               <>
-                {/* Active SKU Section */}
-                {filteredSkuData.filter(sku => sku.is_active).length > 0 && (
+                {/* SKU Tabs */}
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{
+                    display: 'flex',
+                    borderBottom: '2px solid #e0e0e0',
+                    backgroundColor: '#f8f9fa'
+                  }}>
+                    <button
+                      style={{
+                        background: activeTab === 'active' ? '#30ea03' : 'transparent',
+                        color: activeTab === 'active' ? '#000' : '#666',
+                        border: 'none',
+                        padding: '12px 24px',
+                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        borderRadius: '4px 4px 0 0',
+                        borderBottom: activeTab === 'active' ? '2px solid #30ea03' : 'none',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onClick={() => setActiveTab('active')}
+                    >
+                      Active SKU ({filteredSkuData.filter(sku => sku.is_active).length})
+                    </button>
+                    <button
+                      style={{
+                        background: activeTab === 'inactive' ? '#30ea03' : 'transparent',
+                        color: activeTab === 'inactive' ? '#000' : '#666',
+                        border: 'none',
+                        padding: '12px 24px',
+                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        borderRadius: '4px 4px 0 0',
+                        borderBottom: activeTab === 'inactive' ? '2px solid #30ea03' : 'none',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onClick={() => setActiveTab('inactive')}
+                    >
+                      Inactive SKU ({filteredSkuData.filter(sku => !sku.is_active).length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* No Data Message for Active Tab */}
+                {activeTab === 'active' && filteredSkuData.filter(sku => sku.is_active).length === 0 && (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '40px 20px', 
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    border: '1px solid #e9ecef',
+                    marginTop: '20px'
+                  }}>
+                    <i className="ri-inbox-line" style={{ fontSize: '48px', color: '#ccc', marginBottom: '16px' }}></i>
+                    <p style={{ color: '#666', fontSize: '16px', margin: '0' }}>No active SKUs available</p>
+                  </div>
+                )}
+
+                {/* Active SKU Content */}
+                {activeTab === 'active' && filteredSkuData.filter(sku => sku.is_active).length > 0 && (
                   <div style={{ marginBottom: '30px' }}>
-                    <div style={{
-                      background: '#30ea03',
-                      color: '#000',
-                      padding: '4px 20px',
-                      borderRadius: '4px 4px',
-                      fontWeight: 'bold',
-                      fontSize: '16px',
-                      border: '1px solid #30ea03',
-                      borderBottom: 'none'
-                    }}>
-                      Active SKU
-                    </div>
                     {filteredSkuData.filter(sku => sku.is_active).map((sku, index) => (
                 <div key={sku.id} className="panel panel-default" style={{ marginBottom: 10, borderRadius: 6, border: '1px solid #e0e0e0', overflow: 'hidden' }}>
                   <div
@@ -2550,60 +2685,78 @@ const CmSkuDetail: React.FC = () => {
                   </div>
                   <Collapse isOpened={openIndex === index}>
                     <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
-                      <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between' }}>
-                      <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
-                      <div >
-                        <button className="add-sku-btn btnCommon btnGreen filterButtons"
-                          style={{
-                            background: '#30ea03',
-                            color: '#000',
-                            border: 'none',
-                            borderRadius: 6,
-                            fontWeight: 'bold',
-                            padding: '3px 12px',
-                            fontSize: 13,
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            float: 'left',
-                            marginRight: 10,                           
-                            
-                          }}
-                          title="Edit SKU"
-                          onClick={() => {
-                            console.log('SKU passed to Edit:', sku);
-                            handleEditSkuOpen(sku);
-                          }}
-                        >
-                         
-                         <span> Edit SKU</span>
-                          <i className="ri-pencil-line"  style={{ marginLeft: 5 }}/>
-                        </button>
-                        <button className="add-sku-btn btnCommon btnGreen filterButtons"
-                          style={{
-                            background: '#30ea03',
-                            color: '#000',
-                            border: 'none',
-                            borderRadius: 6,
-                            fontWeight: 'bold',
-                            padding: '3px 12px',
-                            fontSize: 13,
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                            display: 'flex',
-                            alignItems: 'center',
-                           
-                          }}
-                          title="Send for Approval"
-                          onClick={() => {
-                            navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
-                          }}
-                        >
-                          <span>
-                          Send for Approval </span>
-                           <i className="ri-send-plane-2-line" style={{ marginLeft: 5 }} />
-                        </button></div>
+                      <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+                        <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button className="add-sku-btn btnCommon btnGreen filterButtons"
+                            style={{
+                              background: '#30ea03',
+                              color: '#000',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontWeight: 'bold',
+                              padding: '6px 12px',
+                              fontSize: 13,
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              minWidth: 110
+                            }}
+                            title="Edit SKU"
+                            onClick={() => {
+                              console.log('SKU passed to Edit:', sku);
+                              handleEditSkuOpen(sku);
+                            }}
+                          >
+                            <span>Edit SKU</span>
+                            <i className="ri-pencil-line" style={{ marginLeft: 5 }}/>
+                          </button>
+                          <button className="add-sku-btn btnCommon btnGreen filterButtons"
+                            style={{
+                              background: '#30ea03',
+                              color: '#000',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontWeight: 'bold',
+                              padding: '6px 12px',
+                              fontSize: 13,
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              minWidth: 110
+                            }}
+                            title="Send for Approval"
+                            onClick={() => {
+                              navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
+                            }}
+                          >
+                            <span>Send for Approval</span>
+                            <i className="ri-send-plane-2-line" style={{ marginLeft: 5 }} />
+                          </button>
+                          <button
+                            className="add-sku-btn btnCommon btnGreen filterButtons"
+                            style={{ 
+                              backgroundColor: '#30ea03', 
+                              color: '#000', 
+                              minWidth: 110, 
+                              fontSize: 13,
+                              padding: '6px 12px',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontWeight: 'bold',
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            onClick={e => { e.stopPropagation(); setSelectedSkuCode(sku.sku_code); setShowAddComponentModal(true); }}
+                          >
+                            <span>Add Component</span>
+                            <i className="ri-add-circle-line" style={{ marginLeft: 5 }}></i>
+                          </button>
+                        </div>
                       </div>
                      
                       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
@@ -2630,15 +2783,6 @@ const CmSkuDetail: React.FC = () => {
                           />
                           <span>Raw Material</span>
                         </label>
-
-                        <button
-                          className="add-sku-btn btnCommon btnGreen filterButtons"
-                          style={{ backgroundColor: '#30ea03', color: '#000', marginLeft: 'auto', minWidth: 140, fontSize: 13, }}
-                          onClick={e => { e.stopPropagation(); setSelectedSkuCode(sku.sku_code); setShowAddComponentModal(true); }}
-                        >
-                          Add Component 
-                          <i className="ri-add-circle-line"></i>
-                        </button>
                       </div>
                       
                       {/* Component Table Header */}
@@ -3125,21 +3269,24 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Inactive SKU Section */}
-                  {filteredSkuData.filter(sku => !sku.is_active).length > 0 && (
+                  {/* No Data Message for Inactive Tab */}
+                  {activeTab === 'inactive' && filteredSkuData.filter(sku => !sku.is_active).length === 0 && (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '40px 20px', 
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      border: '1px solid #e9ecef',
+                      marginTop: '20px'
+                    }}>
+                      <i className="ri-inbox-line" style={{ fontSize: '48px', color: '#ccc', marginBottom: '16px' }}></i>
+                      <p style={{ color: '#666', fontSize: '16px', margin: '0' }}>No inactive SKUs available</p>
+                    </div>
+                  )}
+
+                  {/* Inactive SKU Content */}
+                  {activeTab === 'inactive' && filteredSkuData.filter(sku => !sku.is_active).length > 0 && (
                     <div style={{ marginBottom: '30px' }}>
-                      <div style={{
-                        background: '#ccc',
-                        color: '#fff',
-                        padding: '4px 20px',
-                        borderRadius: '4px 4px',
-                        fontWeight: 'bold',
-                        fontSize: '16px',
-                        border: '1px solid #ccc',
-                        borderBottom: 'none'
-                      }}>
-                        Inactive SKU
-                      </div>
                       {filteredSkuData.filter(sku => !sku.is_active).map((sku, index) => (
                         <div key={sku.id} className="panel panel-default" style={{ marginBottom: 10, borderRadius: 6, border: '1px solid #e0e0e0', overflow: 'hidden' }}>
                           <div
@@ -3195,66 +3342,94 @@ const CmSkuDetail: React.FC = () => {
                           </div>
                           <Collapse isOpened={openIndex === index}>
                             <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
-                              <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between' }}>
-                              <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
-                              <div>
-                                <button
-                                  style={{
-                                    background: '#30ea03',
-                                    color: '#000',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    fontWeight: 'bold',
-                                    padding: '3px 12px',
-                                    fontSize: 13,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                      float: 'left',
-                                    marginRight: 10,
-                                  }}
-                                  title="Edit SKU"
-                                  onClick={() => {
-                                    if (!sku.is_active) {
-                                      setShowInactiveModal(true);
-                                    } else {
-                                      console.log('SKU passed to Edit:', sku);
-                                      handleEditSkuOpen(sku);
-                                    }
-                                  }}
-                                >
-                                  <i className="ri-pencil-line" style={{ fontSize: 18, marginRight: 6 }} />
-                                  Edit SKU
-                                </button>
-                                <button
-                                  style={{
-                                    background: '#30ea03',
-                                    color: '#000',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    fontWeight: 'bold',
-                                    padding: '3px 12px',
-                                    fontSize: 13,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                   float: 'left',
-
-                                  }}
-                                  title="Send for Approval"
-                                  onClick={() => {
-                                    if (!sku.is_active) {
-                                      setShowInactiveModal(true);
-                                    } else {
-                                      navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
-                                    }
-                                  }}
-                                >
-                                  <i className="ri-send-plane-2-line" style={{ fontSize: 18, marginRight: 6 }} />
-                                  Send for Approval
-                                </button></div>
+                              <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+                                <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <button
+                                    style={{
+                                      background: '#30ea03',
+                                      color: '#000',
+                                      border: 'none',
+                                      borderRadius: 6,
+                                      fontWeight: 'bold',
+                                      padding: '6px 12px',
+                                      fontSize: 13,
+                                      cursor: 'pointer',
+                                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      minWidth: 110
+                                    }}
+                                    title="Edit SKU"
+                                    onClick={() => {
+                                      if (!sku.is_active) {
+                                        setShowInactiveModal(true);
+                                      } else {
+                                        console.log('SKU passed to Edit:', sku);
+                                        handleEditSkuOpen(sku);
+                                      }
+                                    }}
+                                  >
+                                    <i className="ri-pencil-line" style={{ fontSize: 16, marginRight: 6 }} />
+                                    <span>Edit SKU</span>
+                                  </button>
+                                  <button
+                                    style={{
+                                      background: '#30ea03',
+                                      color: '#000',
+                                      border: 'none',
+                                      borderRadius: 6,
+                                      fontWeight: 'bold',
+                                      padding: '6px 12px',
+                                      fontSize: 13,
+                                      cursor: 'pointer',
+                                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      minWidth: 110
+                                    }}
+                                    title="Send for Approval"
+                                    onClick={() => {
+                                      if (!sku.is_active) {
+                                        setShowInactiveModal(true);
+                                      } else {
+                                        navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
+                                      }
+                                    }}
+                                  >
+                                    <i className="ri-send-plane-2-line" style={{ fontSize: 16, marginRight: 6 }} />
+                                    <span>Send for Approval</span>
+                                  </button>
+                                  <button
+                                    className="add-sku-btn btnCommon btnGreen filterButtons"
+                                    style={{ 
+                                      backgroundColor: '#30ea03', 
+                                      color: '#000', 
+                                      minWidth: 110, 
+                                      fontSize: 13,
+                                      padding: '6px 12px',
+                                      border: 'none',
+                                      borderRadius: 6,
+                                      fontWeight: 'bold',
+                                      cursor: 'pointer',
+                                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                                      display: 'flex',
+                                      alignItems: 'center'
+                                    }}
+                                    onClick={e => { 
+                                      e.stopPropagation(); 
+                                      if (!sku.is_active) {
+                                        setShowInactiveModal(true);
+                                      } else {
+                                        setSelectedSkuCode(sku.sku_code); 
+                                        setShowAddComponentModal(true);
+                                      }
+                                    }}
+                                  >
+                                    <span>Add Component</span>
+                                    <i className="ri-add-circle-line" style={{ marginLeft: 5 }}></i>
+                                  </button>
+                                </div>
                               </div>
                              
                               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
@@ -3263,21 +3438,6 @@ const CmSkuDetail: React.FC = () => {
                                 <input type="radio" name={`option-${sku.id}`} value="Option 1" style={{ marginRight: 8 }} />
                                 <span style={{ marginRight: 8 }}>Raw Material</span>
                                 <input type="radio" name={`option-${sku.id}`} value="Option 2" style={{ marginRight: 8 }} />
-                                <button
-                                  className="add-sku-btn btnCommon btnGreen filterButtons"
-                                  style={{ backgroundColor: '#30ea03', color: '#000', marginLeft: 'auto', minWidth: 140, fontSize: 13 }}
-                                  onClick={e => { 
-                                    e.stopPropagation(); 
-                                    if (!sku.is_active) {
-                                      setShowInactiveModal(true);
-                                    } else {
-                                      setSelectedSkuCode(sku.sku_code); 
-                                      setShowAddComponentModal(true);
-                                    }
-                                  }}
-                                >
-                                  Add Component <i className="ri-add-circle-line"></i>
-                                </button>
                               </div>
                               
                               {/* Component Table Header */}
@@ -3969,14 +4129,9 @@ const CmSkuDetail: React.FC = () => {
                     <strong>Note:</strong> Fields marked with <span style={{ color: 'red', fontWeight: 'bold' }}>*</span> are mandatory.
                   </div>
                   <div className="row g-3">
-                    {/* Period (read-only) */}
+                    {/* Period */}
                     <div className="col-md-6">
-                      <label>
-                        Period <span style={{ color: 'red' }}>*</span>
-                        <span style={{ color: '#888', fontSize: 12, marginLeft: 6 }}>
-                          <i className="ri-lock-line" style={{ fontSize: 14, verticalAlign: 'middle' }} /> Read Only
-                        </span>
-                      </label>
+                      <label>Period <span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
                         className="form-control"
@@ -3985,14 +4140,9 @@ const CmSkuDetail: React.FC = () => {
                         style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
                       />
                     </div>
-                    {/* SKU (read-only) */}
+                    {/* SKU */}
                     <div className="col-md-6">
-                      <label>
-                        SKU <span style={{ color: 'red' }}>*</span>
-                        <span style={{ color: '#888', fontSize: 12, marginLeft: 6 }}>
-                          <i className="ri-lock-line" style={{ fontSize: 14, verticalAlign: 'middle' }} /> Read Only
-                        </span>
-                      </label>
+                      <label>SKU <span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
                         className="form-control"
@@ -4001,14 +4151,9 @@ const CmSkuDetail: React.FC = () => {
                         style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
                       />
                     </div>
-                    {/* SKU Description (read-only) */}
+                    {/* SKU Description */}
                     <div className="col-md-6">
-                      <label>
-                        SKU Description <span style={{ color: 'red' }}>*</span>
-                        <span style={{ color: '#888', fontSize: 12, marginLeft: 6 }}>
-                          <i className="ri-lock-line" style={{ fontSize: 14, verticalAlign: 'middle' }} /> Read Only
-                        </span>
-                      </label>
+                      <label>SKU Description <span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
                         className="form-control"
@@ -6672,6 +6817,77 @@ const CmSkuDetail: React.FC = () => {
               </div>
               <div className="modal-body" style={{ background: '#fff', padding: '30px' }}>
                 <div className="container-fluid">
+                  {/* Period Selection Section */}
+                  <div className="row mb-4">
+                    <div className="col-12">
+                      <h6 style={{ color: '#000', marginBottom: '16px', fontWeight: 600 }}>Select Periods for Copy Data</h6>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <label style={{ 
+                            display: 'block', 
+                            marginBottom: '8px', 
+                            fontWeight: '600', 
+                            color: '#333',
+                            fontSize: '14px'
+                          }}>
+                            From Period <span style={{ color: 'red' }}>*</span>
+                          </label>
+                          <select
+                            value={copyFromPeriod}
+                            onChange={(e) => setCopyFromPeriod(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '10px 12px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '14px',
+                              backgroundColor: '#fff'
+                            }}
+                            disabled={uploadLoading}
+                          >
+                            <option value="">Select From Period</option>
+                            {years.map(year => (
+                              <option key={year.id} value={year.id}>
+                                {year.period}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-md-6">
+                          <label style={{ 
+                            display: 'block', 
+                            marginBottom: '8px', 
+                            fontWeight: '600', 
+                            color: '#333',
+                            fontSize: '14px'
+                          }}>
+                            To Period <span style={{ color: 'red' }}>*</span>
+                          </label>
+                          <select
+                            value={copyToPeriod}
+                            onChange={(e) => setCopyToPeriod(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '10px 12px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '14px',
+                              backgroundColor: '#fff'
+                            }}
+                            disabled={uploadLoading}
+                          >
+                            <option value="">Select To Period</option>
+                            {years.map(year => (
+                              <option key={year.id} value={year.id}>
+                                {year.period}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="row">
                     <div className="col-12">
                       <div style={{ 
@@ -6682,7 +6898,7 @@ const CmSkuDetail: React.FC = () => {
                         backgroundColor: '#f8fff8'
                       }}>
                         <i className="ri-upload-cloud-2-line" style={{ fontSize: '48px', color: '#30ea03', marginBottom: '16px' }}></i>
-                        <h6 style={{ color: '#000', marginBottom: '12px', fontWeight: 600 }}>Upload File to Copy Data</h6>
+                        <h6 style={{ color: '#000', marginBottom: '12px', fontWeight: 600 }}>Upload the SKU</h6>
                         <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
                           Select a file to upload and copy data. Supported formats: Excel (.xlsx, .xls), CSV (.csv)
                         </p>
@@ -6811,7 +7027,7 @@ const CmSkuDetail: React.FC = () => {
                     gap: '8px'
                   }}
                   onClick={handleCopyDataUpload}
-                  disabled={uploadLoading || !uploadedFile}
+                  disabled={uploadLoading || !uploadedFile || !copyFromPeriod || !copyToPeriod}
                 >
                   {uploadLoading ? (
                     <>

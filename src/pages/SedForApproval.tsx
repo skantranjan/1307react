@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import MultiSelect from '../components/MultiSelect';
@@ -109,6 +109,7 @@ const SedForApproval: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showNoDataModal, setShowNoDataModal] = useState(false);
   const [showMaxSelectionModal, setShowMaxSelectionModal] = useState(false);
+  const lastFilteredDataRef = useRef<string>('');
   const [selectedMaterialType, setSelectedMaterialType] = useState<string>('1'); // Default to Raw Material (ID: 1) since data has material_type_id = 1
   const [materialTypes, setMaterialTypes] = useState<Array<{id: number, item_name: string}>>([]);
   const [isFilterApplied, setIsFilterApplied] = useState<boolean>(true); // Auto-apply filter on page load to show default material type
@@ -417,7 +418,7 @@ const SedForApproval: React.FC = () => {
     };
 
     fetchComponentDetails();
-  }, [selectedYears, cmCode, years]);
+  }, [selectedYears, cmCode]);
 
   // Filtered data based on selected fields and material type
   const filteredData = tableData.filter(row => {
@@ -430,18 +431,8 @@ const SedForApproval: React.FC = () => {
       const selectedTypeStr = selectedMaterialType.toString();
       const rowTypeStr = rowMaterialTypeId ? rowMaterialTypeId.toString() : '';
       
-      // Debug: Log filtering details
-      console.log('Filtering row:', {
-        sku_code: row.sku_code,
-        component_code: row.component_code,
-        selectedMaterialType,
-        rowMaterialTypeId,
-        selectedTypeStr,
-        rowTypeStr,
-        matches: rowTypeStr === selectedTypeStr
-      });
-      
-      if (rowTypeStr !== selectedTypeStr) {
+      // Only filter if the row has a material_type_id and it doesn't match
+      if (rowMaterialTypeId && rowTypeStr !== selectedTypeStr) {
         return false;
       }
     }
@@ -450,25 +441,33 @@ const SedForApproval: React.FC = () => {
     if (selectedFields.length === 0) return true;
     
     // Filter based on selected component fields
-    return selectedFields.some(fieldLabel => {
+    const hasMatchingField = selectedFields.some(fieldLabel => {
       // Convert user-friendly label to database field name
       const fieldName = componentFieldValues[fieldLabel];
       // Check if the row has data for this field
-      return row[fieldName] !== undefined && row[fieldName] !== null && row[fieldName] !== '';
+      const hasData = row[fieldName] !== undefined && row[fieldName] !== null && row[fieldName] !== '';
+      return hasData;
     });
+    
+    return hasMatchingField;
   });
 
-  // Debug effect to log data changes
+
+
+  // Auto-select all rows when filtered data changes
   useEffect(() => {
-    console.log('Table data changed:', {
-      tableDataLength: tableData.length,
-      filteredDataLength: filteredData.length,
-      isFilterApplied,
-      selectedMaterialType,
-      selectedYears,
-      selectedFieldsLength: selectedFields.length
-    });
-  }, [tableData, filteredData, isFilterApplied, selectedMaterialType, selectedYears, selectedFields]);
+    if (filteredData.length > 0) {
+      const allRowIds = filteredData.map(row => row.id || row.component_id || row.componentId);
+      const currentDataHash = JSON.stringify(allRowIds.sort());
+      
+      // Only update if the filtered data has actually changed
+      if (lastFilteredDataRef.current !== currentDataHash) {
+        setSelectedRows(allRowIds);
+        lastFilteredDataRef.current = currentDataHash;
+        console.log('Auto-selected all rows:', allRowIds.length, 'rows');
+      }
+    }
+  }, [filteredData]);
 
   // Select all logic
   const allSelected = filteredData.length > 0 && filteredData.every(row => selectedRows.includes(row.id || row.component_id || row.componentId));
@@ -510,12 +509,32 @@ const SedForApproval: React.FC = () => {
       return;
     }
 
-    // Filter data to only include selected rows
-    const selectedData = filteredData.filter(row => 
-      selectedRows.includes(row.id || row.component_id || row.componentId)
-    );
+    try {
+      // Filter data to only include selected rows
+      const selectedData = filteredData.filter(row => 
+        selectedRows.includes(row.id || row.component_id || row.componentId)
+      );
 
-    const doc = new jsPDF('landscape'); // Use landscape orientation for wide table
+      // Sanitize the data to prevent circular references and large objects
+      const sanitizedData = selectedData.map(row => {
+        const sanitizedRow: any = {};
+        Object.keys(row).forEach(key => {
+          const value = row[key];
+          // Convert complex objects to strings, handle null/undefined
+          if (value === null || value === undefined) {
+            sanitizedRow[key] = '-';
+          } else if (typeof value === 'object') {
+            sanitizedRow[key] = JSON.stringify(value).substring(0, 100) + '...';
+          } else if (typeof value === 'string' && value.length > 200) {
+            sanitizedRow[key] = value.substring(0, 200) + '...';
+          } else {
+            sanitizedRow[key] = value;
+          }
+        });
+        return sanitizedRow;
+      });
+
+      const doc = new jsPDF('landscape'); // Use landscape orientation for wide table
     
     // Define all headers matching the table structure
     const headers = [
@@ -556,7 +575,7 @@ const SedForApproval: React.FC = () => {
     ];
 
     // Table rows with all the data
-    const rows = selectedData.map(row => [
+    const rows = sanitizedData.map(row => [
       row.sku_code || '-',
       row.component_code || '-',
       row.component_description || '-',
@@ -614,6 +633,10 @@ const SedForApproval: React.FC = () => {
     });
 
     doc.save('component-details.pdf');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again or contact support.');
+    }
   };
 
   // Handle field selection with max 15 limit
@@ -660,190 +683,203 @@ const SedForApproval: React.FC = () => {
     }
   };
 
+  // Handle send for sign button click
+  const handleSendForSign = () => {
+    if (selectedRows.length === 0) {
+      alert('Please select at least one row before sending for sign.');
+      return;
+    }
+    // TODO: Implement send for sign functionality
+    console.log('Sending for sign:', selectedRows);
+    alert(`Sending ${selectedRows.length} selected rows for signature.`);
+  };
+
   return (
     <Layout>
       <div className="mainInternalPages">
         <div style={{ marginBottom: 8 }}>
         </div>
         {/* Dashboard Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              width: '40px', 
-              height: '40px', 
-              background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: '18px'
-            }}>
-              <i className="ri-file-list-3-line"></i>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          padding: '12px 0'
+        }}>
+          <div className="commonTitle">
+            <div className="icon">
+              <i className="ri-file-pdf-2-fill"></i>
             </div>
-            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '600', color: '#2c3e50' }}>Component Data Dashboard</h1>
+            <h1>Generate PDF</h1>
           </div>
           <button
             onClick={() => navigate(-1)}
             style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
+              background: 'linear-gradient(135deg, #30ea03 0%, #28c402 100%)',
               border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              fontWeight: '600',
+              color: '#000',
+              fontSize: 14,
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              padding: '2px 16px',
+              borderRadius: '8px',
               transition: 'all 0.3s ease',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+              minWidth: '100px',
+              justifyContent: 'center'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
             }}
           >
-            <i className="ri-arrow-left-line" style={{ fontSize: 16 }}></i>
+            <i className="ri-arrow-left-line" style={{ fontSize: 18, marginRight: 6 }} />
             Back
           </button>
         </div>
 
         {/* 3PM Info Section */}
-        <div style={{ 
-          padding: '16px 20px',
-          marginBottom: '24px',
-          borderBottom: '1px solid #e9ecef'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <strong style={{ color: '#495057', fontSize: '14px' }}>3PM Code:</strong>
-              <span style={{ 
-                color: '#495057', 
-                padding: '4px 12px', 
-                fontSize: '14px', 
-                fontWeight: '600' 
-              }}>{cmCode}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <strong style={{ color: '#495057', fontSize: '14px' }}>3PM Description:</strong>
-              <span style={{ color: '#6c757d', fontSize: '14px' }}>{cmDescription}</span>
+        <div className="filters CMDetails">
+          <div className="row">
+            <div className="col-sm-12 ">
+              <ul style={{ display: 'flex', alignItems: 'center', padding: '6px 15px 8px' }}>
+                <li><strong>3PM Code: </strong> {cmCode}</li>
+                <li> | </li>
+                <li><strong>3PM Description: </strong> {cmDescription}</li>
+              </ul>
             </div>
           </div>
         </div>
 
         {/* Filters Section */}
-        <div style={{ 
-          padding: '24px', 
-          marginBottom: '24px',
-          borderBottom: '1px solid #e9ecef'
-        }}>
-          <h5 style={{ marginBottom: '20px', color: '#2c3e50', fontWeight: '600' }}>Filters</h5>
-          <div className="row g-3 align-items-end">
-            <div className="col-md-3">
-              <div className="filter-group">
-                <label style={{ 
-                  fontWeight: '600', 
-                  color: '#495057', 
-                  marginBottom: '8px', 
-                  fontSize: '14px' 
-                }}>Period</label>
-                <select
-                  value={selectedYears.length > 0 ? selectedYears[0] : ''}
-                  onChange={(e) => {
-                    setSelectedYears(e.target.value ? [e.target.value] : []);
-                  }}
-                  className="form-control"
-                  disabled={years.length === 0}
-                  style={{ 
-                    height: '42px',
-                    borderRadius: '8px',
-                    border: '1px solid #ced4da',
-                    fontSize: '14px'
-                  }}
-                >
-                  <option value="">Select Period</option>
-                  {years.length === 0 ? (
-                    <option value="" disabled>Loading periods...</option>
-                  ) : (
-                    years.map((year, index) => (
-                      <option key={index} value={year.id}>
-                        {year.period}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-            </div>
-            <div className="col-md-3">
-              <div className="filter-group">
-                <label style={{ 
-                  fontWeight: '600', 
-                  color: '#495057', 
-                  marginBottom: '8px', 
-                  fontSize: '14px' 
-                }}>Material Type</label>
-                <select
-                  value={selectedMaterialType}
-                  onChange={(e) => setSelectedMaterialType(e.target.value)}
-                  className="form-control"
-                  style={{ 
-                    height: '42px',
-                    borderRadius: '8px',
-                    border: '1px solid #ced4da',
-                    fontSize: '14px'
-                  }}
-                >
-                  <option value="">Select Material Type</option>
-                  {materialTypes.map((materialType) => (
-                    <option key={materialType.id} value={materialType.id.toString()}>
-                      {materialType.item_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="col-md-4">
-              <div className="filter-group">
-                <label style={{ 
-                  fontWeight: '600', 
-                  color: '#495057', 
-                  marginBottom: '8px', 
-                  fontSize: '14px' 
-                }}>Component Fields</label>
-                <div style={{ minHeight: '42px' }}>
-                  <MultiSelect
-                    options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
-                    selectedValues={selectedFields}
-                    onSelectionChange={handleFieldSelection}
-                    placeholder="Select Component Fields..."
-                    disabled={componentFields.length === 0}
-                    loading={false}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="col-md-2">
-              <div className="filter-group">
-                <label style={{ visibility: 'hidden' }}>&nbsp;</label>
-                <button 
-                  className="btn btn-success w-100" 
-                  style={{ 
-                    height: '42px',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    fontSize: '14px'
-                  }} 
-                  onClick={handleApplyFilters} 
-                  disabled={loading}
-                >
-                  {isFilterApplied ? 'Filter' : 'Apply Filters'}
-                </button>
-              </div>
+        <div className="row"> 
+          <div className="col-sm-12">
+            <div className="filters">
+              <ul>
+                <li>
+                  <div className="fBold">Period</div>
+                  <div className="form-control">
+                    <select
+                      value={selectedYears.length > 0 ? selectedYears[0] : ''}
+                      onChange={(e) => {
+                        setSelectedYears(e.target.value ? [e.target.value] : []);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: '#fff',
+                        border: 'none',
+                        outline: 'none'
+                      }}
+                      disabled={years.length === 0}
+                    >
+                      <option value="">Select Period</option>
+                      {years.length === 0 ? (
+                        <option value="" disabled>Loading periods...</option>
+                      ) : (
+                        years.map((year, index) => (
+                          <option key={index} value={year.id}>
+                            {year.period}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                </li>
+                <li>
+                  <div className="fBold">Material Type</div>
+                  <div className="form-control">
+                    <select
+                      value={selectedMaterialType}
+                      onChange={(e) => setSelectedMaterialType(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: '#fff',
+                        border: 'none',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="">Select Material Type</option>
+                      {materialTypes.map((materialType) => (
+                        <option key={materialType.id} value={materialType.id.toString()}>
+                          {materialType.item_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </li>
+                <li>
+                  <div className="fBold">Component Fields</div>
+                  <div className="form-control">
+                    <MultiSelect
+                      options={Object.values(componentFieldLabels).map(label => ({ value: label, label: label }))}
+                      selectedValues={selectedFields}
+                      onSelectionChange={handleFieldSelection}
+                      placeholder="Select Component Fields..."
+                      disabled={componentFields.length === 0}
+                      loading={false}
+                    />
+                  </div>
+                </li>
+                <li>
+                  <button className="btnCommon btnGreen filterButtons" onClick={handleApplyFilters} disabled={loading}>
+                    <span>{isFilterApplied ? 'Filter' : 'Apply Filters'}</span>
+                    <i className="ri-search-line"></i>
+                  </button>
+                </li>
+                <li style={{ marginLeft: 'auto' }}>
+                  <button
+                    style={{ 
+                      background: '#30ea03', 
+                      color: '#000', 
+                      border: '1px solid #30ea03',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      cursor: selectedRows.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: selectedRows.length === 0 ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '25px'
+                    }}
+                    onClick={handleSendForSign}
+                    disabled={selectedRows.length === 0}
+                  >
+                    <i className="ri-send-plane-2-line" style={{ fontSize: '14px' }}></i>
+                    Send for Sign
+                  </button>
+                </li>
+                <li>
+                  <button
+                    style={{ 
+                      background: '#30ea03', 
+                      color: '#000', 
+                      border: '1px solid #30ea03',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      cursor: selectedRows.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: selectedRows.length === 0 ? 0.6 : 1,
+                      marginTop: '25px'
+                    }}
+                    onClick={handleGeneratePDF}
+                    disabled={selectedRows.length === 0}
+                  >
+                    Generate PDF
+                  </button>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
@@ -868,29 +904,7 @@ const SedForApproval: React.FC = () => {
                 border: '1px solid #e9ecef',
                 overflow: 'hidden'
               }}>
-                <div style={{ 
-                  background: '#f8f9fa', 
-                  color: '#495057', 
-                  padding: '16px 24px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  borderBottom: '1px solid #e9ecef'
-                }}>
-                  <h6 style={{ margin: 0, fontWeight: '600', fontSize: '16px' }}>
-                    Component Data ({filteredData.length} records)
-                  </h6>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <span style={{ 
-                      color: '#495057', 
-                      padding: '6px 12px', 
-                      fontSize: '14px', 
-                      fontWeight: '600' 
-                    }}>
-                      {selectedRows.length} Selected
-                    </span>
-                  </div>
-                </div>
+
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ 
                     width: '100%', 
@@ -904,7 +918,7 @@ const SedForApproval: React.FC = () => {
                         <th style={{ 
                           width: '60px', 
                           textAlign: 'center', 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           background: '#495057',
@@ -925,7 +939,7 @@ const SedForApproval: React.FC = () => {
                           </div>
                         </th>
                         <th style={{ 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           textAlign: 'left',
@@ -938,7 +952,7 @@ const SedForApproval: React.FC = () => {
                           SKU Code
                         </th>
                         <th style={{ 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           textAlign: 'left',
@@ -951,7 +965,7 @@ const SedForApproval: React.FC = () => {
                           Component Code
                         </th>
                         <th style={{ 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           textAlign: 'left',
@@ -964,7 +978,7 @@ const SedForApproval: React.FC = () => {
                           Component Description
                         </th>
                         <th style={{ 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           textAlign: 'left',
@@ -977,7 +991,7 @@ const SedForApproval: React.FC = () => {
                           Component validity date - From
                         </th>
                         <th style={{ 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           textAlign: 'left',
@@ -990,7 +1004,7 @@ const SedForApproval: React.FC = () => {
                           Component validity date - To
                         </th>
                         <th style={{ 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           textAlign: 'left',
@@ -1003,7 +1017,7 @@ const SedForApproval: React.FC = () => {
                           Component Qty
                         </th>
                         <th style={{ 
-                          padding: '8px 12px',
+                          padding: '3px 12px',
                           fontWeight: 'bold',
                           fontSize: '14px',
                           textAlign: 'left',
@@ -1150,8 +1164,9 @@ const SedForApproval: React.FC = () => {
                               }}>
                             <td style={{ 
                               textAlign: 'center', 
-                              padding: '16px 12px',
-                              verticalAlign: 'middle'
+                              padding: '4px 12px',
+                              verticalAlign: 'middle',
+                              border: '1px solid #dee2e6'
                             }}>
                               <div style={{ display: 'flex', justifyContent: 'center' }}>
                                 <input
@@ -1168,101 +1183,115 @@ const SedForApproval: React.FC = () => {
                             </td>
 
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
                               fontWeight: '500',
-                              color: '#2c3e50'
+                              color: '#2c3e50',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.sku_code || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_code || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_description || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_valid_from ? new Date(row.component_valid_from).toLocaleDateString() : '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_valid_to ? new Date(row.component_valid_to).toLocaleDateString() : '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_quantity || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_uom_display || row.component_uom_id || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_base_quantity || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_base_uom_display || row.component_base_uom_id || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_packaging_type_display || row.component_packaging_type_id || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_packaging_material || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.component_unit_weight || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.weight_unit_measure_display || row.weight_unit_measure_id || '-'}
                             </td>
                             <td style={{ 
-                              padding: '16px 12px',
+                              padding: '4px 12px',
                               verticalAlign: 'middle',
-                              color: '#6c757d'
+                              color: '#6c757d',
+                              border: '1px solid #dee2e6'
                             }}>
                               {row.percent_mechanical_pcr_content ? `${row.percent_mechanical_pcr_content}%` : '-'}
                             </td>
@@ -1271,9 +1300,10 @@ const SedForApproval: React.FC = () => {
                               const value = row[fieldName] || '-';
                               return (
                                 <td key={fieldLabel} style={{ 
-                                  padding: '16px 12px',
+                                  padding: '4px 12px',
                                   verticalAlign: 'middle',
-                                  color: '#6c757d'
+                                  color: '#6c757d',
+                                  border: '1px solid #dee2e6'
                                 }}>
                                   {value}
                                 </td>
@@ -1285,40 +1315,7 @@ const SedForApproval: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-                {filteredData.length > 0 && (
-                  <div style={{ 
-                    padding: '16px 24px',
-                    borderTop: '1px solid #e9ecef',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <div>
-                      <small style={{ color: '#6c757d', fontSize: '14px' }}>
-                        Showing {filteredData.length} of {tableData.length} records
-                      </small>
-                    </div>
-                    <div>
-                                              <button
-                          style={{ 
-                            background: 'transparent', 
-                            color: '#28a745', 
-                            border: '1px solid #28a745',
-                            padding: '8px 16px',
-                            borderRadius: '6px',
-                            fontWeight: '600',
-                            fontSize: '14px',
-                            cursor: selectedRows.length === 0 ? 'not-allowed' : 'pointer',
-                            opacity: selectedRows.length === 0 ? 0.6 : 1
-                          }}
-                          onClick={handleGeneratePDF}
-                          disabled={selectedRows.length === 0}
-                        >
-                          Generate PDF ({selectedRows.length})
-                        </button>
-                    </div>
-                  </div>
-                )}
+
               </div>
             </div>
           </div>
