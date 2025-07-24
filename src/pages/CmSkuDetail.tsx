@@ -2300,7 +2300,7 @@ const CmSkuDetail: React.FC = () => {
       {(loading || !minimumLoaderComplete) && <Loader />}
       <div className="mainInternalPages" style={{ display: (loading || !minimumLoaderComplete) ? 'none' : 'block' }}>
         <div style={{ 
-          marginBottom: 8, 
+          // marginBottom: 8, 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
@@ -2323,20 +2323,20 @@ const CmSkuDetail: React.FC = () => {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              padding: '10px 16px',
+              padding: '2px 16px',
               borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(48, 234, 3, 0.3)',
+              // boxShadow: '0 2px 8px rgba(48, 234, 3, 0.3)',
               transition: 'all 0.3s ease',
               minWidth: '100px',
               justifyContent: 'center'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(48, 234, 3, 0.4)';
+              // e.currentTarget.style.boxShadow = '0 4px 12px rgba(48, 234, 3, 0.4)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(48, 234, 3, 0.3)';
+              // e.currentTarget.style.boxShadow = '0 2px 8px rgba(48, 234, 3, 0.3)';
             }}
           >
             <i className="ri-arrow-left-line" style={{ fontSize: 18, marginRight: 6 }} />
@@ -2347,7 +2347,7 @@ const CmSkuDetail: React.FC = () => {
         <div className="filters CMDetails">
           <div className="row">
             <div className="col-sm-12 ">
-              <ul style={{ display: 'flex', alignItems: 'center' }}>
+              <ul style={{ display: 'flex', alignItems: 'center', padding: '6px 15px 8px' }}>
                 <li><strong>3PM Code: </strong> {cmCode}</li>
                 <li> | </li>
                 <li><strong>3PM Description: </strong> {cmDescription}</li>
@@ -2357,7 +2357,7 @@ const CmSkuDetail: React.FC = () => {
                   <span style={{
                     display: 'inline-block',
                     marginLeft: 8,
-                    padding: '2px 14px',
+                    padding: '1px 14px',
                     borderRadius: 12,
                     background: status === 'approved' || status === 'Active' ? '#30ea03' : status === 'pending' ? 'purple' : status === 'rejected' || status === 'Deactive' ? '#ccc' : '#ccc',
                     color: status === 'approved' || status === 'Active' ? '#000' : '#fff',
@@ -2381,15 +2381,15 @@ const CmSkuDetail: React.FC = () => {
               <ul>
                 <li>
                   <div className="fBold">Period</div>
-                  <select
+                  <select className="form-control"
                     value={selectedYears.length > 0 ? selectedYears[0] : ''}
                     onChange={(e) => setSelectedYears(e.target.value ? [e.target.value] : [])}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '5px 12px 3px',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       backgroundColor: '#fff'
                     }}
                     disabled={years.length === 0}
@@ -2402,17 +2402,22 @@ const CmSkuDetail: React.FC = () => {
                     ))}
                   </select>
                 </li>
-                <li>
-                  <div className="fBold">SKU Code-Description</div>
-                  <MultiSelect
-                    options={skuDescriptions.filter(desc => desc && typeof desc === 'string' && desc.trim() !== '').map(desc => ({ value: desc, label: desc }))}
-                    selectedValues={selectedSkuDescriptions}
-                    onSelectionChange={setSelectedSkuDescriptions}
-                    placeholder="Select SKU Code-Description..."
-                    disabled={skuDescriptions.length === 0}
-                    loading={skuDescriptions.length === 0}
-                  />
-                </li>
+              <li>
+  <div className="fBold">SKU Code-Description</div>
+  <div className="form-control">
+    <MultiSelect 
+      options={skuDescriptions
+        .filter(desc => desc && typeof desc === 'string' && desc.trim() !== '')
+        .map(desc => ({ value: desc, label: desc }))}
+      selectedValues={selectedSkuDescriptions}
+      onSelectionChange={setSelectedSkuDescriptions}
+      placeholder="Select SKU Code-Description..."
+      disabled={skuDescriptions.length === 0}
+      loading={skuDescriptions.length === 0}
+    />
+  </div>
+</li>
+
                 <li>
                   <button className="btnCommon btnGreen filterButtons" onClick={handleSearch} disabled={loading}>
                     <span>Search</span>
@@ -2424,44 +2429,45 @@ const CmSkuDetail: React.FC = () => {
                     <span>Reset</span>
                     <i className="ri-refresh-line"></i>
                   </button>
-                </li>
-                <li style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                </li></ul>
+                <ul style={{ justifyContent: 'end', paddingTop: '0' }}>
+                <li style={{ alignSelf: 'fexEnd' }}>
                   <button
-                    className="btnCommon btnGreen"
-                    style={{ minWidth: 120, fontWeight: 600 }}
+                    className="btnCommon btnGreen filterButtons"
+                    style={{ minWidth: 120, fontWeight: 600, marginRight: 10, marginTop: 0 }}
                     onClick={() => setShowSkuModal(true)}
                   >
-                    Add SKU <i className="ri-add-circle-line"></i>
+                    <span>Add SKU</span> <i className="ri-add-circle-line"></i>
                   </button>
                   <button
-                    className="btnCommon btnGreen"
-                    style={{ minWidth: 120 }}
+                    className="btnCommon btnGreen filterButtons"
+                    style={{ minWidth: 120, fontWeight: 600, marginRight: 10, marginTop: 0 }}
                     onClick={() => setShowCopyDataModal(true)}
                   >
-                    Copy Data <i className="ri-file-copy-line"></i>
+                    <span>Copy Data</span> <i className="ri-file-copy-line"></i>
                   </button>
                   <button
-                    className="btnCommon btnGreen"
-                    style={{ minWidth: 120 }}
+                    className="btnCommon btnGreen filterButtons"
+                    style={{ minWidth: 120, fontWeight: 600, marginRight: 10, marginTop: 0 }}
                     onClick={handleExportToExcel}
                   >
-                    Export to Excel <i className="ri-file-excel-2-line"></i>
+                   <span> Export to Excel</span> <i className="ri-file-excel-2-line"></i>
                   </button>
-                  <button
-                    className="btnCommon btnGreen"
+                   <button
+                    className="btnCommon btnGreen filterButtons" 
                     style={{ 
                       minWidth: 120,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 6,
-                      fontWeight: 600
+                                           fontWeight: 600, 
+                      marginTop: 0
                     }}
                     onClick={() => {
                       navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
                     }}
                   >
                     <i className="ri-file-pdf-2-line" style={{ fontSize: 16 }}></i>
-                    Generate PDF
+                    <span>Generate PDF</span><i className="ri-file-pdf-line"></i>
                   </button>
                 </li>
               </ul>
@@ -2487,8 +2493,8 @@ const CmSkuDetail: React.FC = () => {
                     <div style={{
                       background: '#30ea03',
                       color: '#000',
-                      padding: '12px 20px',
-                      borderRadius: '8px 8px 0 0',
+                      padding: '4px 20px',
+                      borderRadius: '4px 4px',
                       fontWeight: 'bold',
                       fontSize: '16px',
                       border: '1px solid #30ea03',
@@ -2500,7 +2506,7 @@ const CmSkuDetail: React.FC = () => {
                 <div key={sku.id} className="panel panel-default" style={{ marginBottom: 10, borderRadius: 6, border: '1px solid #e0e0e0', overflow: 'hidden' }}>
                   <div
                     className="panel-heading panel-title"
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', background: '#000', color: '#fff', fontWeight: 600 }}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', background: '#000', color: '#fff', fontWeight: 600, paddingLeft: 10 }}
                     onClick={() => {
                       setOpenIndex(openIndex === index ? null : index);
                       if (openIndex !== index && !componentDetails[sku.sku_code]) {
@@ -2525,10 +2531,13 @@ const CmSkuDetail: React.FC = () => {
                           border: 'none',
                           borderRadius: 4,
                           fontWeight: 'bold',
-                          padding: '6px 18px',
+                          padding: '3px 18px',
                           cursor: 'pointer',
                           marginLeft: 8,
-                          minWidth: 90
+                          minWidth: 90,
+                          height: 24,
+                          margin: '5px 0',
+                          fontSize: 12,
                         }}
                         onClick={e => {
                           e.stopPropagation();
@@ -2541,21 +2550,25 @@ const CmSkuDetail: React.FC = () => {
                   </div>
                   <Collapse isOpened={openIndex === index}>
                     <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, gap: 8 }}>
-                        <button
+                      <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between' }}>
+                      <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                      <div >
+                        <button className="add-sku-btn btnCommon btnGreen filterButtons"
                           style={{
                             background: '#30ea03',
                             color: '#000',
                             border: 'none',
-                            borderRadius: 4,
+                            borderRadius: 6,
                             fontWeight: 'bold',
-                            padding: '8px 22px',
-                            fontSize: 16,
+                            padding: '3px 12px',
+                            fontSize: 13,
                             cursor: 'pointer',
                             boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 8
+                            float: 'left',
+                            marginRight: 10,                           
+                            
                           }}
                           title="Edit SKU"
                           onClick={() => {
@@ -2563,34 +2576,36 @@ const CmSkuDetail: React.FC = () => {
                             handleEditSkuOpen(sku);
                           }}
                         >
-                          <i className="ri-pencil-line" style={{ fontSize: 18, marginRight: 6 }} />
-                          Edit SKU
+                         
+                         <span> Edit SKU</span>
+                          <i className="ri-pencil-line"  style={{ marginLeft: 5 }}/>
                         </button>
-                        <button
+                        <button className="add-sku-btn btnCommon btnGreen filterButtons"
                           style={{
                             background: '#30ea03',
                             color: '#000',
                             border: 'none',
-                            borderRadius: 4,
+                            borderRadius: 6,
                             fontWeight: 'bold',
-                            padding: '8px 22px',
-                            fontSize: 16,
+                            padding: '3px 12px',
+                            fontSize: 13,
                             cursor: 'pointer',
                             boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 8
+                           
                           }}
                           title="Send for Approval"
                           onClick={() => {
                             navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
                           }}
                         >
-                          <i className="ri-send-plane-2-line" style={{ fontSize: 18, marginRight: 6 }} />
-                          Send for Approval
-                        </button>
+                          <span>
+                          Send for Approval </span>
+                           <i className="ri-send-plane-2-line" style={{ marginLeft: 5 }} />
+                        </button></div>
                       </div>
-                      <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                     
                       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontWeight: 600, marginRight: 8 }}>Material Type:</span>
                         <label style={{ display: 'flex', alignItems: 'center', marginRight: 16, cursor: 'pointer' }}>
@@ -2602,7 +2617,7 @@ const CmSkuDetail: React.FC = () => {
                             onChange={(e) => setSelectedMaterialType(e.target.value)}
                             style={{ marginRight: 6 }}
                           />
-                          <span>Packaging</span>
+                          <span>Packaging </span>
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', marginRight: 16, cursor: 'pointer' }}>
                           <input 
@@ -2617,11 +2632,12 @@ const CmSkuDetail: React.FC = () => {
                         </label>
 
                         <button
-                          className="add-sku-btn"
-                          style={{ backgroundColor: '#30ea03', color: '#000', marginLeft: 'auto', minWidth: 140 }}
+                          className="add-sku-btn btnCommon btnGreen filterButtons"
+                          style={{ backgroundColor: '#30ea03', color: '#000', marginLeft: 'auto', minWidth: 140, fontSize: 13, }}
                           onClick={e => { e.stopPropagation(); setSelectedSkuCode(sku.sku_code); setShowAddComponentModal(true); }}
                         >
-                          Add Component <i className="ri-add-circle-line"></i>
+                          Add Component 
+                          <i className="ri-add-circle-line"></i>
                         </button>
                       </div>
                       
@@ -2634,7 +2650,7 @@ const CmSkuDetail: React.FC = () => {
                         marginTop: '16px'
                       }}>
                         <div style={{ 
-                          padding: '16px 20px', 
+                          padding: '8px 20px', 
                           borderBottom: '1px solid #e9ecef',
                           background: '#000',
                           color: '#fff'
@@ -2659,7 +2675,7 @@ const CmSkuDetail: React.FC = () => {
                               <thead>
                                 <tr style={{ backgroundColor: '#000' }}>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2670,7 +2686,7 @@ const CmSkuDetail: React.FC = () => {
                                     Action
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2681,7 +2697,7 @@ const CmSkuDetail: React.FC = () => {
                                     Active/Deactive
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2692,7 +2708,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Type
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2703,7 +2719,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Code
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2714,7 +2730,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Description
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2725,7 +2741,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component validity date - From
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2736,7 +2752,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component validity date - To
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2747,7 +2763,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Category
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2758,7 +2774,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Quantity
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2769,7 +2785,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Unit of Measure
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2780,7 +2796,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Base Quantity
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2791,7 +2807,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Base Unit of Measure
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2802,7 +2818,7 @@ const CmSkuDetail: React.FC = () => {
                                     %w/w
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2813,7 +2829,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Packaging Type
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2824,7 +2840,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Packaging Material
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2835,7 +2851,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Unit Weight
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2846,7 +2862,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component Weight Unit of Measure
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2857,7 +2873,7 @@ const CmSkuDetail: React.FC = () => {
                                     % Mechanical Post-Consumer Recycled Content (inc. Chemical)
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2868,7 +2884,7 @@ const CmSkuDetail: React.FC = () => {
                                     % Mechanical Post-Industrial Recycled Content
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2879,7 +2895,7 @@ const CmSkuDetail: React.FC = () => {
                                     % Chemical Recycled Content
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2890,7 +2906,7 @@ const CmSkuDetail: React.FC = () => {
                                     % Bio-sourced?
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2901,7 +2917,7 @@ const CmSkuDetail: React.FC = () => {
                                     Material structure - multimaterials only (with % wt)
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2912,7 +2928,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component packaging colour / opacity
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -2923,7 +2939,7 @@ const CmSkuDetail: React.FC = () => {
                                     Component packaging level
                                   </th>
                                   <th style={{ 
-                                    padding: '12px 16px', 
+                                    padding: '6px 16px', 
                                     fontSize: '13px', 
                                     fontWeight: '600',
                                     textAlign: 'left',
@@ -3115,8 +3131,8 @@ const CmSkuDetail: React.FC = () => {
                       <div style={{
                         background: '#ccc',
                         color: '#fff',
-                        padding: '12px 20px',
-                        borderRadius: '8px 8px 0 0',
+                        padding: '4px 20px',
+                        borderRadius: '4px 4px',
                         fontWeight: 'bold',
                         fontSize: '16px',
                         border: '1px solid #ccc',
@@ -3128,7 +3144,7 @@ const CmSkuDetail: React.FC = () => {
                         <div key={sku.id} className="panel panel-default" style={{ marginBottom: 10, borderRadius: 6, border: '1px solid #e0e0e0', overflow: 'hidden' }}>
                           <div
                             className="panel-heading panel-title"
-                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', background: '#000', color: '#fff', fontWeight: 600 }}
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', background: '#000', color: '#fff', fontWeight: 600, paddingLeft: 10 }}
                             onClick={() => {
                               setOpenIndex(openIndex === index ? null : index);
                               if (openIndex !== index && !componentDetails[sku.sku_code]) {
@@ -3153,10 +3169,14 @@ const CmSkuDetail: React.FC = () => {
                                   border: 'none',
                                   borderRadius: 4,
                                   fontWeight: 'bold',
-                                  padding: '6px 18px',
+                                  padding: '3px 18px',
                                   cursor: 'pointer',
                                   marginLeft: 8,
-                                  minWidth: 90
+                                  minWidth: 90,
+                                  height: 24,
+                                  margin: '5px 0px',
+                                  fontSize: 12,
+                                 
                                 }}
                                 onClick={e => {
                                   e.stopPropagation();
@@ -3175,7 +3195,9 @@ const CmSkuDetail: React.FC = () => {
                           </div>
                           <Collapse isOpened={openIndex === index}>
                             <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, gap: 8 }}>
+                              <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between' }}>
+                              <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                              <div>
                                 <button
                                   style={{
                                     background: '#30ea03',
@@ -3183,13 +3205,14 @@ const CmSkuDetail: React.FC = () => {
                                     border: 'none',
                                     borderRadius: 4,
                                     fontWeight: 'bold',
-                                    padding: '8px 22px',
-                                    fontSize: 16,
+                                    padding: '3px 12px',
+                                    fontSize: 13,
                                     cursor: 'pointer',
                                     boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 8
+                                      float: 'left',
+                                    marginRight: 10,
                                   }}
                                   title="Edit SKU"
                                   onClick={() => {
@@ -3211,13 +3234,14 @@ const CmSkuDetail: React.FC = () => {
                                     border: 'none',
                                     borderRadius: 4,
                                     fontWeight: 'bold',
-                                    padding: '8px 22px',
-                                    fontSize: 16,
+                                    padding: '3px 12px',
+                                    fontSize: 13,
                                     cursor: 'pointer',
                                     boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 8
+                                   float: 'left',
+
                                   }}
                                   title="Send for Approval"
                                   onClick={() => {
@@ -3230,9 +3254,9 @@ const CmSkuDetail: React.FC = () => {
                                 >
                                   <i className="ri-send-plane-2-line" style={{ fontSize: 18, marginRight: 6 }} />
                                   Send for Approval
-                                </button>
+                                </button></div>
                               </div>
-                              <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                             
                               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
                                 <span style={{ fontWeight: 600, marginRight: 8 }}>Material Type:</span>
                                 <span style={{ marginRight: 8 }}>Packaging</span>
@@ -3240,8 +3264,8 @@ const CmSkuDetail: React.FC = () => {
                                 <span style={{ marginRight: 8 }}>Raw Material</span>
                                 <input type="radio" name={`option-${sku.id}`} value="Option 2" style={{ marginRight: 8 }} />
                                 <button
-                                  className="add-sku-btn"
-                                  style={{ backgroundColor: '#30ea03', color: '#000', marginLeft: 'auto', minWidth: 140 }}
+                                  className="add-sku-btn btnCommon btnGreen filterButtons"
+                                  style={{ backgroundColor: '#30ea03', color: '#000', marginLeft: 'auto', minWidth: 140, fontSize: 13 }}
                                   onClick={e => { 
                                     e.stopPropagation(); 
                                     if (!sku.is_active) {
@@ -3265,7 +3289,7 @@ const CmSkuDetail: React.FC = () => {
                                 marginTop: '16px'
                               }}>
                                 <div style={{ 
-                                  padding: '16px 20px', 
+                                  padding: '8px 20px', 
                                   borderBottom: '1px solid #e9ecef',
                                   background: '#000',
                                   color: '#fff'
@@ -3290,7 +3314,7 @@ const CmSkuDetail: React.FC = () => {
                                       <thead>
                                         <tr style={{ backgroundColor: '#000' }}>
                                           <th style={{ 
-                                            padding: '12px 16px', 
+                                            padding: '8px 16px', 
                                             fontSize: '13px', 
                                             fontWeight: '600',
                                             textAlign: 'left',
@@ -3761,18 +3785,19 @@ const CmSkuDetail: React.FC = () => {
                     background: '#000',
                     border: 'none',
                     color: '#fff',
-                    fontSize: 32,
+                    fontSize: 16,
                     fontWeight: 900,
                     lineHeight: 1,
                     cursor: 'pointer',
                     marginLeft: 8,
-                    width: '48px',
-                    height: '48px',
+                    width: '30px',
+                    height: '30px',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    marginRight: 20,
                   }}
                 >
                   &times;
@@ -3888,6 +3913,8 @@ const CmSkuDetail: React.FC = () => {
                   onMouseOut={e => e.currentTarget.style.color = '#000'}
                 >
                   {addSkuLoading ? 'Saving...' : 'Save'}
+
+                  
                 </button>
               </div>
             </div>
@@ -4070,7 +4097,8 @@ const CmSkuDetail: React.FC = () => {
                   fontWeight: 700, 
                   flex: 1,
                   fontSize: '20px',
-                  margin: 0
+                  margin: 0,
+                marginLeft: '20px',
                 }}>
                   <i className="ri-add-circle-line" style={{ marginRight: '10px', fontSize: '22px' }} />
                   Add Component
@@ -4701,20 +4729,21 @@ const CmSkuDetail: React.FC = () => {
                       backgroundColor: 'rgb(48, 234, 3)', 
                       border: 'none', 
                       color: '#000', 
-                      minWidth: 120, 
+                     
                       fontWeight: 600,
-                      padding: '12px 24px',
+                      
                       borderRadius: '8px',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px'
+                      gap: '6px'
                     }}
                     onClick={handleAddComponentSave}
                   >
-                    <i className="ri-save-line" style={{ fontSize: '16px' }} />
+                   
                     Save
+                    <i className="ri-save-line" style={{ fontSize: '16px' }} />
                   </button>
               </div>
             </div>
@@ -6750,8 +6779,8 @@ const CmSkuDetail: React.FC = () => {
                   className="btn btn-secondary"
                   onClick={handleCopyDataModalClose}
                   style={{
-                    background: '#6c757d',
-                    color: 'white',
+                    background: '#000',
+                    color: '#fff',
                     border: 'none',
                     padding: '8px 16px',
                     borderRadius: '4px',
@@ -6759,7 +6788,9 @@ const CmSkuDetail: React.FC = () => {
                     marginRight: '12px'
                   }}
                 >
+                 
                   Cancel
+                  <i className="ri-close-fill" style={{ fontSize: '16px', color: '#fff', marginLeft: 6 }} />
                 </button>
                 <button
                   type="button"
@@ -6770,7 +6801,7 @@ const CmSkuDetail: React.FC = () => {
                     color: '#000', 
                     minWidth: 120, 
                     fontWeight: 600,
-                    padding: '12px 24px',
+                    padding: '8px 24px',
                     borderRadius: '8px',
                     fontSize: '14px',
                     cursor: uploadLoading ? 'not-allowed' : 'pointer',
@@ -6789,8 +6820,9 @@ const CmSkuDetail: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <i className="ri-upload-line" style={{ fontSize: '16px' }} />
+                      
                       Upload & Copy Data
+                      <i className="ri-upload-line" style={{ fontSize: '16px' }} />
                     </>
                   )}
                 </button>
