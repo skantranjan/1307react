@@ -9,6 +9,7 @@ import { useMsal } from '@azure/msal-react';
 
 // Interface for CM Code data structure with signoff status
 interface CmCode {
+  id: number;
   cm_code: string;
   cm_description: string;
   created_at: string;
@@ -26,6 +27,8 @@ interface CmCode {
 
 // Interface for new 3PM data
 interface New3PMData {
+  period: string;
+  srmm: string;
   cm_code: string;
   cm_description: string;
   region: string;
@@ -84,6 +87,8 @@ const CmDashboard: React.FC = () => {
   // Add 3PM modal state
   const [showAdd3PMModal, setShowAdd3PMModal] = useState(false);
   const [new3PMData, setNew3PMData] = useState<New3PMData>({
+    period: '',
+    srmm: '',
     cm_code: '',
     cm_description: '',
     region: ''
@@ -132,8 +137,27 @@ const CmDashboard: React.FC = () => {
           console.log('CM Codes API Response:', result.data);
           console.log('Sample CM Code with periods:', result.data.find(item => item.periods));
           console.log('Sample CM Code with signoff_status:', result.data.find(item => item.signoff_status));
+          console.log('Sample CM Code with is_active:', result.data.find(item => item.is_active !== undefined));
           console.log('All signoff_status values:', result.data.map(item => ({ cm_code: item.cm_code, signoff_status: item.signoff_status })));
-          setCmCodes(result.data);
+          console.log('All is_active values:', result.data.map(item => ({ cm_code: item.cm_code, is_active: item.is_active })));
+          
+          // Add is_active field if missing from API response
+          const processedData = result.data.map(item => ({
+            ...item,
+            is_active: item.is_active !== undefined ? item.is_active : true // Default to true if missing
+          }));
+          
+          // Sort the data to maintain consistent order
+          const sortedData = processedData.sort((a, b) => {
+            // Primary sort by cm_code (alphabetical)
+            const codeComparison = a.cm_code.localeCompare(b.cm_code);
+            if (codeComparison !== 0) return codeComparison;
+            
+            // Secondary sort by id (numerical) if cm_codes are the same
+            return (a as any).id - (b as any).id;
+          });
+          
+          setCmCodes(sortedData);
           
           // Extract unique signoff statuses for filter (if available)
           const uniqueStatuses = Array.from(new Set(result.data.map(item => item.signoff_status).filter((status): status is string => Boolean(status))));
@@ -221,21 +245,56 @@ const CmDashboard: React.FC = () => {
     fetchPeriods();
   }, []);
 
-  // Set regions with hardcoded data
+  // Fetch regions from API
   useEffect(() => {
-    const regionsData = [
-      'ANZ',
-      'CHINA',
-      'EU',
-      'ISC',
-      'Latam',
-      'MEA',
-      'NA',
-      'North Asia',
-      'SEAT'
-    ];
-    setRegions(regionsData);
-    console.log('Available regions:', regionsData);
+    const fetchRegions = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/regions');
+        if (!response.ok) throw new Error('Failed to fetch regions');
+        const result = await response.json();
+        console.log('Regions API Response:', result);
+        
+        if (result.success && Array.isArray(result.data)) {
+          // Extract region names from the API response
+          const regionNames = result.data.map((region: any) => region.name);
+          setRegions(regionNames);
+          console.log('Available regions:', regionNames);
+        } else {
+          // Fallback to hardcoded data if API fails
+          const fallbackRegions = [
+            'ANZ',
+            'CHINA',
+            'EU',
+            'ISC',
+            'Latam',
+            'MEA',
+            'NA',
+            'North Asia',
+            'SEAT'
+          ];
+          setRegions(fallbackRegions);
+          console.log('Using fallback regions:', fallbackRegions);
+        }
+      } catch (err) {
+        console.error('Error fetching regions:', err);
+        // Fallback to hardcoded data if API fails
+        const fallbackRegions = [
+          'ANZ',
+          'CHINA',
+          'EU',
+          'ISC',
+          'Latam',
+          'MEA',
+          'NA',
+          'North Asia',
+          'SEAT'
+        ];
+        setRegions(fallbackRegions);
+        console.log('Using fallback regions due to error:', fallbackRegions);
+      }
+    };
+    
+    fetchRegions();
   }, []);
 
   // Set SRM Leads with hardcoded data
@@ -385,7 +444,12 @@ const CmDashboard: React.FC = () => {
         const result: ApiResponse = await response.json();
         
         if (result.success) {
-          setCmCodes(result.data);
+          // Add is_active field if missing from API response
+          const processedData = result.data.map(item => ({
+            ...item,
+            is_active: item.is_active !== undefined ? item.is_active : true // Default to true if missing
+          }));
+          setCmCodes(processedData);
           
           // Extract unique signoff statuses for filter (if available)
           const uniqueStatuses = Array.from(new Set(result.data.map(item => item.signoff_status).filter((status): status is string => Boolean(status))));
@@ -468,7 +532,18 @@ const CmDashboard: React.FC = () => {
     }
 
     console.log(`Final filtered results: ${filtered.length} items`);
-    return filtered;
+    
+    // Sort the filtered data to maintain consistent order
+    const sortedData = [...filtered].sort((a, b) => {
+      // Primary sort by cm_code (alphabetical)
+      const codeComparison = a.cm_code.localeCompare(b.cm_code);
+      if (codeComparison !== 0) return codeComparison;
+      
+      // Secondary sort by id (numerical) if cm_codes are the same
+      return (a as any).id - (b as any).id;
+    });
+    
+    return sortedData;
   }, [cmCodes, appliedFilters]);
 
   // Pagination logic
@@ -595,6 +670,8 @@ const CmDashboard: React.FC = () => {
   const handleOpenAdd3PMModal = () => {
     setShowAdd3PMModal(true);
     setNew3PMData({
+      period: '',
+      srmm: '',
       cm_code: '',
       cm_description: '',
       region: ''
@@ -606,6 +683,8 @@ const CmDashboard: React.FC = () => {
   const handleCloseAdd3PMModal = () => {
     setShowAdd3PMModal(false);
     setNew3PMData({
+      period: '',
+      srmm: '',
       cm_code: '',
       cm_description: '',
       region: ''
@@ -628,6 +707,12 @@ const CmDashboard: React.FC = () => {
       setAdd3PMError(null);
 
       // Validate required fields
+      if (!new3PMData.period.trim()) {
+        throw new Error('Period is required');
+      }
+      if (!new3PMData.srmm.trim()) {
+        throw new Error('SRRM is required');
+      }
       if (!new3PMData.cm_code.trim()) {
         throw new Error('3PM Code is required');
       }
@@ -680,7 +765,12 @@ const CmDashboard: React.FC = () => {
           const result: ApiResponse = await response.json();
           
           if (result.success) {
-            setCmCodes(result.data);
+            // Add is_active field if missing from API response
+            const processedData = result.data.map(item => ({
+              ...item,
+              is_active: item.is_active !== undefined ? item.is_active : true // Default to true if missing
+            }));
+            setCmCodes(processedData);
           } else {
             throw new Error('API returned unsuccessful response');
           }
@@ -702,17 +792,32 @@ const CmDashboard: React.FC = () => {
     }
   };
 
-  // Handle is_active status change
-  const handleIsActiveChange = async (cmCode: string, currentStatus: boolean) => {
+  // State for confirmation modal
+  const [showToggleConfirmModal, setShowToggleConfirmModal] = useState(false);
+  const [toggleConfirmData, setToggleConfirmData] = useState<{ cmCode: string; currentStatus: boolean; id: number } | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+
+  // Handle checkbox click - show confirmation modal
+  const handleCheckboxClick = (cmCode: string, currentStatus: boolean, id: number) => {
+    setToggleConfirmData({ cmCode, currentStatus, id });
+    setShowToggleConfirmModal(true);
+  };
+
+  // Handle is_active status change after confirmation
+  const handleIsActiveChange = async (cmCode: string, currentStatus: boolean, id: number) => {
     try {
       // Optimistically update the UI
       setCmCodes(prev => prev.map(cm => 
         cm.cm_code === cmCode ? { ...cm, is_active: !currentStatus } : cm
       ));
 
-      // Make API call to update the status
-      const response = await fetch(`http://localhost:3000/cm-codes/${encodeURIComponent(cmCode)}/toggle-active`, {
-        method: 'PUT',
+      // Make API call to update the status using ID
+      const apiUrl = `http://localhost:3000/cm-codes/${id}/toggle-active`;
+      console.log('Calling API:', apiUrl);
+      console.log('Request body:', { is_active: !currentStatus });
+      
+      const response = await fetch(apiUrl, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -724,16 +829,112 @@ const CmDashboard: React.FC = () => {
         setCmCodes(prev => prev.map(cm => 
           cm.cm_code === cmCode ? { ...cm, is_active: currentStatus } : cm
         ));
-        throw new Error('Failed to update status');
+        
+        let errorMessage = 'Failed to update status';
+        if (response.status === 404) {
+          errorMessage = 'API endpoint not found. Please check if the backend server is running and the endpoint exists.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error occurred while updating status.';
+        } else {
+          try {
+            const errorData = await response.text();
+            errorMessage = `HTTP ${response.status}: ${errorData}`;
+          } catch {
+            errorMessage = `HTTP ${response.status}: Failed to update status`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      console.log(`Successfully updated is_active status for ${cmCode} to ${!currentStatus}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update with the actual data from API response
+        setCmCodes(prev => prev.map(cm => 
+          cm.cm_code === cmCode ? { ...cm, ...result.data } : cm
+        ));
+        console.log(`Successfully ${!currentStatus ? 'activated' : 'deactivated'} CM code: ${cmCode}`);
+        
+        // Refresh the data table to show updated information
+        await refreshDataTable();
+      } else {
+        // Revert the change if API returns error
+        setCmCodes(prev => prev.map(cm => 
+          cm.cm_code === cmCode ? { ...cm, is_active: currentStatus } : cm
+        ));
+        throw new Error(result.message || 'Failed to update status');
+      }
     } catch (err) {
       console.error('Error updating is_active status:', err);
       // Revert the change if API call fails
       setCmCodes(prev => prev.map(cm => 
         cm.cm_code === cmCode ? { ...cm, is_active: currentStatus } : cm
       ));
+      
+      // Set error message for user
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update status';
+      setToggleError(errorMessage);
+      
+      // Clear error after 5 seconds
+      setTimeout(() => setToggleError(null), 5000);
+    }
+  };
+
+  // Handle confirmation modal close
+  const handleCloseToggleConfirmModal = () => {
+    setShowToggleConfirmModal(false);
+    setToggleConfirmData(null);
+  };
+
+  // Refresh data table function
+  const refreshDataTable = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/cm-codes', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ApiResponse = await response.json();
+      
+      if (result.success) {
+        // Add is_active field if missing from API response
+        const processedData = result.data.map(item => ({
+          ...item,
+          is_active: item.is_active !== undefined ? item.is_active : true // Default to true if missing
+        }));
+        
+        // Sort the data to maintain consistent order
+        const sortedData = processedData.sort((a, b) => {
+          // Primary sort by cm_code (alphabetical)
+          const codeComparison = a.cm_code.localeCompare(b.cm_code);
+          if (codeComparison !== 0) return codeComparison;
+          
+          // Secondary sort by id (numerical) if cm_codes are the same
+          return (a as any).id - (b as any).id;
+        });
+        
+        setCmCodes(sortedData);
+        console.log('Data table refreshed successfully');
+      } else {
+        throw new Error('API returned unsuccessful response');
+      }
+    } catch (err) {
+      console.error('Error refreshing data table:', err);
+      setToggleError('Failed to refresh data. Please refresh the page manually.');
+    }
+  };
+
+  // Handle confirmation modal confirm
+  const handleConfirmToggle = async () => {
+    if (toggleConfirmData) {
+      await handleIsActiveChange(toggleConfirmData.cmCode, toggleConfirmData.currentStatus, toggleConfirmData.id);
+      handleCloseToggleConfirmModal();
     }
   };
 
@@ -744,6 +945,38 @@ const CmDashboard: React.FC = () => {
   return (
     <Layout>
       {loading && <Loader />}
+      {toggleError && (
+        <div style={{
+          background: '#f8d7da',
+          color: '#721c24',
+          padding: '12px 20px',
+          borderRadius: '4px',
+          margin: '0 20px 20px 20px',
+          border: '1px solid #f5c6cb',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <i className="ri-error-warning-line" style={{ marginRight: '8px', fontSize: '16px' }}></i>
+            <span>{toggleError}</span>
+          </div>
+          <button
+            onClick={() => setToggleError(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#721c24',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '0',
+              marginLeft: '10px'
+            }}
+          >
+            <i className="ri-close-line"></i>
+          </button>
+        </div>
+      )}
       <div className="mainInternalPages" style={{ opacity: loading ? 0.5 : 1 }}>
         <div className="commonTitle" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -986,18 +1219,40 @@ const CmDashboard: React.FC = () => {
                       </td>
                       <td style={{ padding: '8px 4px', width: '80px', textAlign: 'center', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-                          <input
-                            type="checkbox"
-                            checked={row.is_active || false}
-                            onChange={() => handleIsActiveChange(row.cm_code, row.is_active || false)}
-                            style={{
-                              width: '18px',
-                              height: '18px',
-                              cursor: 'pointer',
-                              accentColor: '#30ea03'
-                            }}
-                            title={row.is_active ? 'Deactivate 3PM' : 'Activate 3PM'}
-                          />
+                          <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            cursor: 'pointer',
+                            margin: 0,
+                            padding: '4px',
+                            borderRadius: '4px',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#f0f0f0';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={row.is_active || false}
+                              onChange={() => handleCheckboxClick(row.cm_code, row.is_active || false, (row as any).id || 0)}
+                              style={{
+                                width: '20px',
+                                height: '20px',
+                                cursor: 'pointer',
+                                accentColor: '#30ea03',
+                                margin: 0,
+                                border: '2px solid #ddd',
+                                borderRadius: '3px',
+                                backgroundColor: row.is_active ? '#30ea03' : '#fff'
+                              }}
+                              title={row.is_active ? 'Deactivate 3PM' : 'Activate 3PM'}
+                            />
+                          </label>
                         </div>
                       </td>
                       <td style={{ padding: '8px 4px', width: '60px', textAlign: 'center', verticalAlign: 'middle' }}>
@@ -1395,6 +1650,65 @@ const CmDashboard: React.FC = () => {
                 color: '#333',
                 fontSize: '14px'
               }}>
+                Period <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <select
+                value={new3PMData.period}
+                onChange={(e) => handleAdd3PMInputChange('period', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: '#fff'
+                }}
+                disabled={add3PMLoading}
+              >
+                <option value="">Select Period</option>
+                {periods.map(period => (
+                  <option key={period.id} value={period.id.toString()}>
+                    {period.period}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                color: '#333',
+                fontSize: '14px'
+              }}>
+                SRRM <span style={{ color: '#dc3545' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={new3PMData.srmm}
+                onChange={(e) => handleAdd3PMInputChange('srmm', e.target.value)}
+                placeholder="Enter SRRM"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: '#fff'
+                }}
+                disabled={add3PMLoading}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontWeight: '600',
+                color: '#333',
+                fontSize: '14px'
+              }}>
                 3PM Code <span style={{ color: '#dc3545' }}>*</span>
               </label>
               <input
@@ -1466,15 +1780,11 @@ const CmDashboard: React.FC = () => {
                 disabled={add3PMLoading}
               >
                 <option value="">Select Region</option>
-                <option value="ANZ">ANZ</option>
-                <option value="CHINA">CHINA</option>
-                <option value="EU">EU</option>
-                <option value="ISC">ISC</option>
-                <option value="Latam">Latam</option>
-                <option value="MEA">MEA</option>
-                <option value="NA">NA</option>
-                <option value="North Asia">North Asia</option>
-                <option value="SEAT">SEAT</option>
+                {regions.map(region => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1617,6 +1927,153 @@ const CmDashboard: React.FC = () => {
           }
         }
       `}</style>
+
+      {/* Toggle Active/Inactive Confirmation Modal */}
+      {showToggleConfirmModal && toggleConfirmData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '8px',
+            padding: '30px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            position: 'relative'
+          }}>
+            <button
+              onClick={handleCloseToggleConfirmModal}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#000',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px',
+                transition: 'all 0.2s ease',
+                zIndex: 1000
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#333';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#000';
+              }}
+            >
+              <i className="ri-close-line"></i>
+            </button>
+            
+            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: toggleConfirmData.currentStatus ? '#ffc107' : '#30ea03',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                fontSize: '24px',
+                color: '#fff'
+              }}>
+                <i className={toggleConfirmData.currentStatus ? 'ri-alert-line' : 'ri-check-line'}></i>
+              </div>
+              <h3 style={{ 
+                margin: '0 0 10px 0', 
+                color: '#333', 
+                fontSize: '20px',
+                fontWeight: '600'
+              }}>
+                {toggleConfirmData.currentStatus ? 'Deactivate' : 'Activate'} 3PM
+              </h3>
+              <p style={{ 
+                margin: 0, 
+                color: '#666', 
+                fontSize: '14px',
+                lineHeight: '1.5'
+              }}>
+                Are you sure you want to {toggleConfirmData.currentStatus ? 'deactivate' : 'activate'} the 3PM code{' '}
+                <strong>{toggleConfirmData.cmCode}</strong>?
+              </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={handleCloseToggleConfirmModal}
+                style={{
+                  background: '#6c757d',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#5a6268';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#6c757d';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmToggle}
+                style={{
+                  background: toggleConfirmData.currentStatus ? '#dc3545' : '#30ea03',
+                  color: toggleConfirmData.currentStatus ? '#fff' : '#000',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = toggleConfirmData.currentStatus ? '#c82333' : '#28c003';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = toggleConfirmData.currentStatus ? '#dc3545' : '#30ea03';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <i className={toggleConfirmData.currentStatus ? 'ri-close-line' : 'ri-check-line'}></i>
+                {toggleConfirmData.currentStatus ? 'Deactivate' : 'Activate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
