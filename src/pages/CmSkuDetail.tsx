@@ -1065,6 +1065,7 @@ const CmSkuDetail: React.FC = () => {
   const [selectedSkuComponents, setSelectedSkuComponents] = useState<any[]>([]);
   const [showComponentTable, setShowComponentTable] = useState(false);
   const [selectedComponentIds, setSelectedComponentIds] = useState<number[]>([]);
+  const [componentsToSave, setComponentsToSave] = useState<any[]>([]); // Object to store data for API
 
   // Search SKU reference function
   const searchSkuReference = async (searchTerm: string) => {
@@ -1123,6 +1124,7 @@ const CmSkuDetail: React.FC = () => {
     setAddSkuReference(selectedSku.sku_reference);
     setShowSkuSearchResults(false);
     setSelectedSkuComponents(selectedSku.components || []);
+    setComponentsToSave(selectedSku.components || []); // Store data for API
     setSelectedComponentIds([]); // Reset selected components
     setShowComponentTable(true);
   };
@@ -1130,8 +1132,17 @@ const CmSkuDetail: React.FC = () => {
   // Handle component deletion
   const handleDeleteComponent = (componentId: number) => {
     if (window.confirm('Are you sure you want to delete this component?')) {
+      // Remove from display table
       setSelectedSkuComponents(prevComponents => 
         prevComponents.filter(component => component.id !== componentId)
+      );
+      // Remove from save object
+      setComponentsToSave(prevComponents => 
+        prevComponents.filter(component => component.id !== componentId)
+      );
+      // Remove from selected IDs
+      setSelectedComponentIds(prevIds => 
+        prevIds.filter(id => id !== componentId)
       );
     }
   };
@@ -1172,15 +1183,47 @@ const CmSkuDetail: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          sku_code: addSku,
-          sku_description: addSkuDescription,
-          formulation_reference: addSkuFormulationReference, // Add formulation reference
-          period: addSkuPeriod,
-          sku_type: addSkuType,
-          sku_reference: addSkuReference,
-          sku_name_site: addSkuNameSite, // Add the new field
-          cm_code: cmCode,
-          cm_description: cmDescription
+          sku_data: {
+            sku_code: addSku,
+            sku_description: addSkuDescription,
+            site: addSkuNameSite,
+            cm_code: cmCode,
+            sku_reference: addSkuReference,
+            period: addSkuPeriod,
+            formulation_reference: addSkuFormulationReference
+          },
+          components: componentsToSave.map(component => ({
+            component_code: component.component_code,
+            component_description: component.component_description,
+            component_quantity: component.component_quantity,
+            percent_w_w: component.percent_w_w,
+            formulation_reference: component.formulation_reference,
+            material_type_id: component.material_type_id,
+            components_reference: component.components_reference,
+            component_valid_from: component.component_valid_from,
+            component_valid_to: component.component_valid_to,
+            component_material_group: component.component_material_group,
+            component_uom_id: component.component_uom_id,
+            component_base_quantity: component.component_base_quantity,
+            component_base_uom_id: component.component_base_uom_id,
+            evidence: component.evidence,
+            component_packaging_type_id: component.component_packaging_type_id,
+            component_packaging_material: component.component_packaging_material,
+            component_unit_weight: component.component_unit_weight,
+            weight_unit_measure_id: component.weight_unit_measure_id,
+            percent_mechanical_pcr_content: component.percent_mechanical_pcr_content,
+            percent_mechanical_pir_content: component.percent_mechanical_pir_content,
+            percent_chemical_recycled_content: component.percent_chemical_recycled_content,
+            percent_bio_sourced: component.percent_bio_sourced,
+            material_structure_multimaterials: component.material_structure_multimaterials,
+            component_packaging_color_opacity: component.component_packaging_color_opacity,
+            component_packaging_level_id: component.component_packaging_level_id,
+            component_dimensions: component.component_dimensions,
+            packaging_specification_evidence: component.packaging_specification_evidence,
+            evidence_of_recycled_or_bio_source: component.evidence_of_recycled_or_bio_source,
+            cm_code: component.cm_code,
+            periods: component.periods
+          }))
         })
       });
       const result = await response.json();
@@ -1190,8 +1233,15 @@ const CmSkuDetail: React.FC = () => {
         setAddSkuLoading(false);
         return;
       }
-      // Success
-      setAddSkuSuccess('SKU added successfully!');
+      
+      // Success - Handle the new response format
+      console.log('SKU Add API Response:', result);
+      
+      if (result.sku_data && result.component_results) {
+        setAddSkuSuccess(`SKU added successfully! SKU ID: ${result.sku_data.id}, Components processed: ${result.components_processed}`);
+      } else {
+        setAddSkuSuccess('SKU added successfully!');
+      }
       setAddSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
       // Call audit log API
       const auditResponse = await fetch('http://localhost:3000/sku-auditlog/add', {
@@ -1229,6 +1279,7 @@ const CmSkuDetail: React.FC = () => {
         setShowSkuSearchResults(false);
         setSelectedSkuComponents([]);
         setShowComponentTable(false);
+        setComponentsToSave([]); // Reset components to save
         // setAddSkuQty(''); // Hidden for now
         setAddSkuSuccess('');
         setLoading(true); // show full-page loader
