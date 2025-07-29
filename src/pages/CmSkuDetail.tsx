@@ -1064,6 +1064,7 @@ const CmSkuDetail: React.FC = () => {
   // Component table state
   const [selectedSkuComponents, setSelectedSkuComponents] = useState<any[]>([]);
   const [showComponentTable, setShowComponentTable] = useState(false);
+  const [selectedComponentIds, setSelectedComponentIds] = useState<number[]>([]);
 
   // Search SKU reference function
   const searchSkuReference = async (searchTerm: string) => {
@@ -1081,19 +1082,25 @@ const CmSkuDetail: React.FC = () => {
       
       if (result.success && result.data) {
         // Map the results to include period name and handle new structure
-        const mappedResults = result.data.map((item: any) => {
-          const skuInfo = item.sku_info;
-          const components = item.components || [];
-          return {
-            ...skuInfo,
-            period_name: getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`,
-            display_text: `${skuInfo.sku_code} (${getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`})`,
-            components_count: components.length,
-            total_components: result.total_components || 0,
-            total_skus: result.total_skus || 0,
-            components: components // Store the components data
-          };
-        });
+                        const mappedResults = result.data.map((item: any) => {
+                  const skuInfo = item.sku_info;
+                  const components = item.components || [];
+                  
+                  // Extract unique SKU codes from components
+                  const componentSkuCodes = components.map((comp: any) => comp.sku_code).filter((code: string) => code);
+                  const uniqueSkuCodes = Array.from(new Set(componentSkuCodes.flatMap((code: string) => code.split(','))));
+                  
+                  return {
+                    ...skuInfo,
+                    period_name: getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`,
+                    display_text: `${skuInfo.sku_code} (${getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`})`,
+                    components_count: components.length,
+                    total_components: result.total_components || 0,
+                    total_skus: result.total_skus || 0,
+                    components: components, // Store the components data
+                    component_sku_codes: uniqueSkuCodes // Store unique component SKU codes
+                  };
+                });
         setSkuSearchResults(mappedResults);
         setShowSkuSearchResults(true);
       } else {
@@ -1116,6 +1123,7 @@ const CmSkuDetail: React.FC = () => {
     setAddSkuReference(selectedSku.sku_reference);
     setShowSkuSearchResults(false);
     setSelectedSkuComponents(selectedSku.components || []);
+    setSelectedComponentIds([]); // Reset selected components
     setShowComponentTable(true);
   };
 
@@ -1283,6 +1291,11 @@ const CmSkuDetail: React.FC = () => {
         const mappedResults = result.data.map((item: any) => {
           const skuInfo = item.sku_info;
           const components = item.components || [];
+          
+          // Extract unique SKU codes from components
+          const componentSkuCodes = components.map((comp: any) => comp.sku_code).filter((code: string) => code);
+          const uniqueSkuCodes = Array.from(new Set(componentSkuCodes.flatMap((code: string) => code.split(','))));
+          
           return {
             ...skuInfo,
             period_name: getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`,
@@ -1290,7 +1303,8 @@ const CmSkuDetail: React.FC = () => {
             components_count: components.length,
             total_components: result.total_components || 0,
             total_skus: result.total_skus || 0,
-            components: components
+            components: components,
+            component_sku_codes: uniqueSkuCodes // Store unique component SKU codes
           };
         });
         setEditSkuSearchResults(mappedResults);
@@ -4121,7 +4135,7 @@ const CmSkuDetail: React.FC = () => {
       {/* SKU Modal */}
       {showSkuModal && (
         <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
-          <div className="modal-dialog modal-xl modal-dialog-scrollable">
+          <div className="modal-dialog modal-xl modal-dialog-scrollable" style={{ maxHeight: '90vh', margin: '2vh auto' }}>
             <div className="modal-content">
               <div className="modal-header" style={{ backgroundColor: 'rgb(48, 234, 3)', color: '#000', borderBottom: '2px solid #000', alignItems: 'center' }}>
                 <h5 className="modal-title" style={{ color: '#000', fontWeight: 700, flex: 1 }}>Add SKU Details</h5>
@@ -4342,9 +4356,6 @@ const CmSkuDetail: React.FC = () => {
                                   <div style={{ fontSize: '12px', color: '#666' }}>
                                     {sku.sku_description} - {sku.period_name}
                                   </div>
-                                  <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
-                                    Site: {sku.site || 'N/A'} | Components: {sku.components_count} | CM: {sku.cm_code}
-                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -4375,6 +4386,7 @@ const CmSkuDetail: React.FC = () => {
                             <table className="table table-striped table-hover" style={{ marginBottom: 0 }}>
                                                               <thead style={{ backgroundColor: '#f8f9fa' }}>
                                   <tr>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Select</th>
                                     <th style={{ padding: '8px', fontSize: '10px' }}>Action</th>
                                     <th style={{ padding: '8px', fontSize: '10px' }}>Component Code</th>
                                     <th style={{ padding: '8px', fontSize: '10px' }}>Description</th>
@@ -4410,6 +4422,20 @@ const CmSkuDetail: React.FC = () => {
                                                               <tbody>
                                   {selectedSkuComponents.map((component, index) => (
                                     <tr key={index}>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px', textAlign: 'center' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedComponentIds.includes(component.id)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedComponentIds([...selectedComponentIds, component.id]);
+                                            } else {
+                                              setSelectedComponentIds(selectedComponentIds.filter(id => id !== component.id));
+                                            }
+                                          }}
+                                          style={{ cursor: 'pointer' }}
+                                        />
+                                      </td>
                                       <td style={{ padding: '4px 6px', fontSize: '9px', textAlign: 'center' }}>
                                         <button
                                           type="button"
@@ -4523,7 +4549,7 @@ const CmSkuDetail: React.FC = () => {
 
       {showEditSkuModal && (
         <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
-          <div className="modal-dialog modal-xl modal-dialog-scrollable">
+          <div className="modal-dialog modal-xl modal-dialog-scrollable" style={{ maxHeight: '90vh', margin: '2vh auto' }}>
             <div className="modal-content">
               <div className="modal-header" style={{ backgroundColor: 'rgb(48, 234, 3)', color: '#000', borderBottom: '2px solid #000', alignItems: 'center' }}>
                 <h5 className="modal-title" style={{ color: '#000', fontWeight: 700, flex: 1 }}>Edit SKU Details</h5>
@@ -4806,7 +4832,7 @@ const CmSkuDetail: React.FC = () => {
 
       {showAddComponentModal && (
         <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.6)' }} tabIndex={-1}>
-          <div className="modal-dialog modal-xl modal-dialog-scrollable">
+          <div className="modal-dialog modal-xl modal-dialog-scrollable" style={{ maxHeight: '90vh', margin: '2vh auto' }}>
             <div className="modal-content" style={{ 
               borderRadius: '12px', 
               border: 'none',
@@ -5587,7 +5613,7 @@ const CmSkuDetail: React.FC = () => {
       {/* Edit Component Modal */}
       {showEditComponentModal && (
         <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
-          <div className="modal-dialog modal-xl modal-dialog-scrollable">
+          <div className="modal-dialog modal-xl modal-dialog-scrollable" style={{ maxHeight: '90vh', margin: '2vh auto' }}>
             <div className="modal-content">
               <div className="modal-header" style={{ backgroundColor: 'rgb(48, 234, 3)', color: '#000', borderBottom: '2px solid #000', alignItems: 'center' }}>
                 <h5 className="modal-title" style={{ color: '#000', fontWeight: 700, flex: 1 }}>Edit Component Details</h5>
