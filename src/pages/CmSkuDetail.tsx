@@ -1047,12 +1047,101 @@ const CmSkuDetail: React.FC = () => {
   const [addSkuPeriod, setAddSkuPeriod] = useState('');
   const [addSku, setAddSku] = useState('');
   const [addSkuDescription, setAddSkuDescription] = useState('');
+  const [addSkuFormulationReference, setAddSkuFormulationReference] = useState(''); // New field for Formulation Reference
   const [addSkuType, setAddSkuType] = useState('internal'); // Default to internal
   const [addSkuReference, setAddSkuReference] = useState('');
+  const [addSkuNameSite, setAddSkuNameSite] = useState(''); // New field for Name Site
   // const [addSkuQty, setAddSkuQty] = useState(''); // Hidden for now, may be used later
   const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
   const [addSkuSuccess, setAddSkuSuccess] = useState('');
   const [addSkuLoading, setAddSkuLoading] = useState(false);
+  
+  // Search functionality for external SKU reference
+  const [skuSearchResults, setSkuSearchResults] = useState<any[]>([]);
+  const [showSkuSearchResults, setShowSkuSearchResults] = useState(false);
+  const [skuSearchLoading, setSkuSearchLoading] = useState(false);
+  
+  // Component table state
+  const [selectedSkuComponents, setSelectedSkuComponents] = useState<any[]>([]);
+  const [showComponentTable, setShowComponentTable] = useState(false);
+
+  // Search SKU reference function
+  const searchSkuReference = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setSkuSearchResults([]);
+      setShowSkuSearchResults(false);
+      setShowComponentTable(false);
+      return;
+    }
+
+    setSkuSearchLoading(true);
+    try {
+      const response = await fetch(`http://localhost:3000/skureference/${encodeURIComponent(searchTerm)}`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // Map the results to include period name and handle new structure
+        const mappedResults = result.data.map((item: any) => {
+          const skuInfo = item.sku_info;
+          const components = item.components || [];
+          return {
+            ...skuInfo,
+            period_name: getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`,
+            display_text: `${skuInfo.sku_code} (${getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`})`,
+            components_count: components.length,
+            total_components: result.total_components || 0,
+            total_skus: result.total_skus || 0,
+            components: components // Store the components data
+          };
+        });
+        setSkuSearchResults(mappedResults);
+        setShowSkuSearchResults(true);
+      } else {
+        setSkuSearchResults([]);
+        setShowSkuSearchResults(false);
+        setShowComponentTable(false);
+      }
+    } catch (error) {
+      console.error('Error searching SKU reference:', error);
+      setSkuSearchResults([]);
+      setShowSkuSearchResults(false);
+      setShowComponentTable(false);
+    } finally {
+      setSkuSearchLoading(false);
+    }
+  };
+
+  // Handle SKU reference selection
+  const handleSkuReferenceSelect = (selectedSku: any) => {
+    setAddSkuReference(selectedSku.sku_reference);
+    setShowSkuSearchResults(false);
+    setSelectedSkuComponents(selectedSku.components || []);
+    setShowComponentTable(true);
+  };
+
+  // Handle component deletion
+  const handleDeleteComponent = (componentId: number) => {
+    if (window.confirm('Are you sure you want to delete this component?')) {
+      setSelectedSkuComponents(prevComponents => 
+        prevComponents.filter(component => component.id !== componentId)
+      );
+    }
+  };
+
+  // Close search results when clicking outside
+  const handleClickOutside = (event: any) => {
+    if (showSkuSearchResults && !event.target.closest('.sku-search-container')) {
+      setShowSkuSearchResults(false);
+    }
+  };
+
+  // Add click outside listener
+  React.useEffect(() => {
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showSkuSearchResults]);
 
   // Add SKU handler
   const handleAddSkuSave = async () => {
@@ -1077,9 +1166,11 @@ const CmSkuDetail: React.FC = () => {
         body: JSON.stringify({
           sku_code: addSku,
           sku_description: addSkuDescription,
+          formulation_reference: addSkuFormulationReference, // Add formulation reference
           period: addSkuPeriod,
           sku_type: addSkuType,
           sku_reference: addSkuReference,
+          sku_name_site: addSkuNameSite, // Add the new field
           cm_code: cmCode,
           cm_description: cmDescription
         })
@@ -1121,9 +1212,15 @@ const CmSkuDetail: React.FC = () => {
         setShowSkuModal(false);
         setAddSku('');
         setAddSkuDescription('');
+        setAddSkuFormulationReference(''); // Reset formulation reference
         setAddSkuPeriod('');
         setAddSkuType('internal');
         setAddSkuReference('');
+        setAddSkuNameSite(''); // Reset the new field
+        setSkuSearchResults([]);
+        setShowSkuSearchResults(false);
+        setSelectedSkuComponents([]);
+        setShowComponentTable(false);
         // setAddSkuQty(''); // Hidden for now
         setAddSkuSuccess('');
         setLoading(true); // show full-page loader
@@ -1150,13 +1247,85 @@ const CmSkuDetail: React.FC = () => {
     period: '',
     sku: '',
     skuDescription: '',
+    formulationReference: '',
+    skuType: 'internal',
+    skuReference: '',
+    skuNameSite: '',
     qty: '',
     dualSource: '',
-    skuReference: '',
   });
-  const [editSkuErrors, setEditSkuErrors] = useState({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
+  const [editSkuErrors, setEditSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
   const [editSkuSuccess, setEditSkuSuccess] = useState('');
   const [editSkuLoading, setEditSkuLoading] = useState(false);
+  
+  // Edit SKU search functionality
+  const [editSkuSearchResults, setEditSkuSearchResults] = useState<any[]>([]);
+  const [showEditSkuSearchResults, setShowEditSkuSearchResults] = useState(false);
+  const [editSkuSearchLoading, setEditSkuSearchLoading] = useState(false);
+  const [editSelectedSkuComponents, setEditSelectedSkuComponents] = useState<any[]>([]);
+  const [showEditComponentTable, setShowEditComponentTable] = useState(false);
+
+  // Edit SKU search function
+  const searchEditSkuReference = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setEditSkuSearchResults([]);
+      setShowEditSkuSearchResults(false);
+      setShowEditComponentTable(false);
+      return;
+    }
+
+    setEditSkuSearchLoading(true);
+    try {
+      const response = await fetch(`http://localhost:3000/skureference/${encodeURIComponent(searchTerm)}`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const mappedResults = result.data.map((item: any) => {
+          const skuInfo = item.sku_info;
+          const components = item.components || [];
+          return {
+            ...skuInfo,
+            period_name: getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`,
+            display_text: `${skuInfo.sku_code} (${getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`})`,
+            components_count: components.length,
+            total_components: result.total_components || 0,
+            total_skus: result.total_skus || 0,
+            components: components
+          };
+        });
+        setEditSkuSearchResults(mappedResults);
+        setShowEditSkuSearchResults(true);
+      } else {
+        setEditSkuSearchResults([]);
+        setShowEditSkuSearchResults(false);
+        setShowEditComponentTable(false);
+      }
+    } catch (error) {
+      console.error('Error searching SKU reference:', error);
+      setEditSkuSearchResults([]);
+      setShowEditSkuSearchResults(false);
+      setShowEditComponentTable(false);
+    } finally {
+      setEditSkuSearchLoading(false);
+    }
+  };
+
+  // Handle Edit SKU reference selection
+  const handleEditSkuReferenceSelect = (selectedSku: any) => {
+    setEditSkuData(prev => ({ ...prev, skuReference: selectedSku.sku_reference }));
+    setShowEditSkuSearchResults(false);
+    setEditSelectedSkuComponents(selectedSku.components || []);
+    setShowEditComponentTable(true);
+  };
+
+  // Handle Edit component deletion
+  const handleEditDeleteComponent = (componentId: number) => {
+    if (window.confirm('Are you sure you want to delete this component?')) {
+      setEditSelectedSkuComponents(prevComponents => 
+        prevComponents.filter(component => component.id !== componentId)
+      );
+    }
+  };
 
   // Handler to open Edit SKU modal (to be called on Edit SKU button click)
   const handleEditSkuOpen = (sku: SkuData) => {
@@ -1167,11 +1336,14 @@ const CmSkuDetail: React.FC = () => {
       period: periodName || '',
       sku: sku.sku_code || '',
       skuDescription: sku.sku_description || '',
+      formulationReference: sku.formulation_reference || '',
+      skuType: 'internal', // Default, can be updated based on existing data
+      skuReference: sku.sku_reference || '',
+      skuNameSite: '', // Add if you have this field in SKU data
       qty: sku.purchased_quantity != null ? String(sku.purchased_quantity) : '',
       dualSource: sku.dual_source || '',
-      skuReference: sku.sku_reference || '',
     });
-    setEditSkuErrors({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
+    setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
     setEditSkuSuccess('');
     setShowEditSkuModal(true);
   };
@@ -1179,14 +1351,14 @@ const CmSkuDetail: React.FC = () => {
   // Edit SKU handler
   const handleEditSkuUpdate = async () => {
     // Client-side validation
-    let errors = { sku: '', skuDescription: '', period: '', qty: '', server: '' };
+    let errors = { sku: '', skuDescription: '', period: '', skuType: '', server: '' };
     if (!editSkuData.sku.trim()) errors.sku = 'A value is required for SKU code';
     if (!editSkuData.skuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
     if (!editSkuData.period) errors.period = 'A value is required for the Period';
-    // if (!editSkuData.qty || isNaN(Number(editSkuData.qty)) || Number(editSkuData.qty) <= 0) errors.qty = 'A value is required for Purchased Quantity';
+    if (!editSkuData.skuType) errors.skuType = 'A value is required for SKU Type';
     setEditSkuErrors(errors);
     setEditSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period) return;
+    if (errors.sku || errors.skuDescription || errors.period || errors.skuType) return;
 
     // PUT to API
     setEditSkuLoading(true);
@@ -1199,19 +1371,22 @@ const CmSkuDetail: React.FC = () => {
         body: JSON.stringify({
           sku_code: editSkuData.sku,
           sku_description: editSkuData.skuDescription,
+          formulation_reference: editSkuData.formulationReference,
           period: editSkuData.period,
-          dual_source: editSkuData.dualSource,
-          sku_reference: editSkuData.skuReference
+          sku_type: editSkuData.skuType,
+          sku_reference: editSkuData.skuReference,
+          sku_name_site: editSkuData.skuNameSite,
+          dual_source: editSkuData.dualSource
         })
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
-        setEditSkuErrors({ ...errors, server: result.message || 'Server validation failed' });
+        setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: result.message || 'Server validation failed' });
         setEditSkuLoading(false);
         return;
       }
       setEditSkuSuccess('SKU updated successfully!');
-      setEditSkuErrors({ sku: '', skuDescription: '', period: '', qty: '', server: '' });
+      setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
       // Call audit log API
       const auditResponse = await fetch('http://localhost:3000/sku-auditlog/add', {
         method: 'POST',
@@ -1250,7 +1425,7 @@ const CmSkuDetail: React.FC = () => {
         setLoading(false); // hide loader
       }, 1200);
     } catch (err) {
-      setEditSkuErrors({ ...errors, server: 'Network or server error' });
+      setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: 'Network or server error' });
     } finally {
       setEditSkuLoading(false);
     }
@@ -2579,6 +2754,37 @@ const CmSkuDetail: React.FC = () => {
               </div>
             ) : (
               <>
+                {/* Send for Approval Button */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'flex-end', 
+                  marginBottom: '16px'
+                }}>
+                  <button className="add-sku-btn btnCommon btnGreen filterButtons"
+                    style={{
+                      background: '#30ea03',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: 6,
+                      fontWeight: 'bold',
+                      padding: '6px 12px',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      minWidth: 110
+                    }}
+                    title="Send for Approval"
+                    onClick={() => {
+                      navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
+                    }}
+                  >
+                    <span>Send for Approval</span>
+                    <i className="ri-send-plane-2-line" style={{ marginLeft: 5 }} />
+                  </button>
+                </div>
+                
                 {/* SKU Tabs */}
                 <div style={{ marginBottom: '20px' }}>
                   <div style={{
@@ -2716,29 +2922,6 @@ const CmSkuDetail: React.FC = () => {
                             <span>Edit SKU</span>
                             <i className="ri-pencil-line" style={{ marginLeft: 5 }}/>
                           </button>
-                          <button className="add-sku-btn btnCommon btnGreen filterButtons"
-                            style={{
-                              background: '#30ea03',
-                              color: '#000',
-                              border: 'none',
-                              borderRadius: 6,
-                              fontWeight: 'bold',
-                              padding: '6px 12px',
-                              fontSize: 13,
-                              cursor: 'pointer',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              minWidth: 110
-                            }}
-                            title="Send for Approval"
-                            onClick={() => {
-                              navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
-                            }}
-                          >
-                            <span>Send for Approval</span>
-                            <i className="ri-send-plane-2-line" style={{ marginLeft: 5 }} />
-                          </button>
                           <button
                             className="add-sku-btn btnCommon btnGreen filterButtons"
                             style={{ 
@@ -2788,6 +2971,8 @@ const CmSkuDetail: React.FC = () => {
                           <span>Raw Material</span>
                         </label>
                       </div>
+                      
+
                       
                       {/* Component Table Header */}
                       <div style={{ 
@@ -3973,17 +4158,35 @@ const CmSkuDetail: React.FC = () => {
                     {/* Period dropdown */}
                     <div className="col-md-6">
                       <label>Period <span style={{ color: 'red' }}>*</span></label>
-                      <select
-                        className={`form-control${addSkuErrors.period ? ' is-invalid' : ''}`}
-                        value={addSkuPeriod}
-                        onChange={e => setAddSkuPeriod(e.target.value)}
-                        disabled={addSkuLoading}
-                      >
-                        <option value="">Select Period</option>
-                        {years.map(year => (
-                          <option key={year.id} value={year.id}>{year.period}</option>
-                        ))}
-                      </select>
+                      <div style={{ position: 'relative' }}>
+                        <select
+                          className={`form-control${addSkuErrors.period ? ' is-invalid' : ''}`}
+                          value={addSkuPeriod}
+                          onChange={e => setAddSkuPeriod(e.target.value)}
+                          disabled={addSkuLoading}
+                          style={{ 
+                            appearance: 'none',
+                            paddingRight: '30px'
+                          }}
+                        >
+                          <option value="">Select Period</option>
+                          {years.map(year => (
+                            <option key={year.id} value={year.id}>{year.period}</option>
+                          ))}
+                        </select>
+                        <i 
+                          className="ri-arrow-down-s-line" 
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            pointerEvents: 'none',
+                            color: '#666',
+                            fontSize: '16px'
+                          }}
+                        />
+                      </div>
                       {addSkuErrors.period && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.period}</div>}
                     </div>
                     {/* SKU text field */}
@@ -4010,8 +4213,20 @@ const CmSkuDetail: React.FC = () => {
                       />
                       {addSkuErrors.skuDescription && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.skuDescription}</div>}
                     </div>
-                    {/* SKU Type radio buttons */}
+                    {/* Formulation Reference text field */}
                     <div className="col-md-6">
+                      <label>Formulation Reference</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={addSkuFormulationReference}
+                        onChange={e => setAddSkuFormulationReference(e.target.value)}
+                        placeholder="Enter Formulation Reference"
+                        disabled={addSkuLoading}
+                      />
+                    </div>
+                    {/* SKU Type radio buttons - Full row */}
+                    <div className="col-md-12">
                       <label>SKU Type <span style={{ color: 'red' }}>*</span></label>
                       <div style={{ marginTop: '8px' }}>
                         <div style={{ display: 'flex', gap: '20px' }}>
@@ -4042,18 +4257,218 @@ const CmSkuDetail: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    {/* SKU Reference text field */}
-                    <div className="col-md-6">
-                      <label>SKU Reference</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={addSkuReference}
-                        onChange={e => setAddSkuReference(e.target.value)}
-                        placeholder="Enter SKU Reference"
-                        disabled={addSkuLoading}
-                      />
-                    </div>
+                    {/* Conditional fields based on SKU Type */}
+                    {addSkuType === 'internal' && (
+                      <>
+                        <div className="col-md-6">
+                          <label>Reference SKU</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={addSkuReference}
+                            onChange={e => setAddSkuReference(e.target.value)}
+                            placeholder="Enter Reference SKU"
+                            disabled={addSkuLoading}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label>Name Site</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={addSkuNameSite}
+                            onChange={e => setAddSkuNameSite(e.target.value)}
+                            placeholder="Enter Name Site"
+                            disabled={addSkuLoading}
+                          />
+                        </div>
+                      </>
+                    )}
+                    {addSkuType === 'external' && (
+                      <div className="col-md-6">
+                        <label>Reference SKU</label>
+                        <div style={{ position: 'relative' }} className="sku-search-container">
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={addSkuReference}
+                            onChange={e => {
+                              setAddSkuReference(e.target.value);
+                              searchSkuReference(e.target.value);
+                            }}
+                            placeholder="Search SKU Reference"
+                            disabled={addSkuLoading}
+                            style={{ paddingRight: '40px' }}
+                          />
+                          {skuSearchLoading && (
+                            <div style={{
+                              position: 'absolute',
+                              right: '10px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              pointerEvents: 'none'
+                            }}>
+                              <i className="ri-loader-4-line" style={{ animation: 'spin 1s linear infinite' }}></i>
+                            </div>
+                          )}
+                          {showSkuSearchResults && skuSearchResults.length > 0 && (
+                            <div style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              right: 0,
+                              backgroundColor: 'white',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              maxHeight: '200px',
+                              overflowY: 'auto',
+                              zIndex: 1000,
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                            }}>
+                              {skuSearchResults.map((sku, index) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    padding: '8px 12px',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid #eee',
+                                    fontSize: '14px'
+                                  }}
+                                  onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                                  onMouseOut={e => e.currentTarget.style.backgroundColor = 'white'}
+                                  onClick={() => handleSkuReferenceSelect(sku)}
+                                >
+                                  <div style={{ fontWeight: '500' }}>{sku.sku_code}</div>
+                                  <div style={{ fontSize: '12px', color: '#666' }}>
+                                    {sku.sku_description} - {sku.period_name}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                                    Site: {sku.site || 'N/A'} | Components: {sku.components_count} | CM: {sku.cm_code}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Component Table for External SKU */}
+                    {addSkuType === 'external' && showComponentTable && selectedSkuComponents.length > 0 && (
+                      <div className="col-md-12">
+                        <div style={{ 
+                          marginTop: '20px',
+                          border: '1px solid #ddd',
+                          borderRadius: '8px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            backgroundColor: '#f8f9fa',
+                            padding: '12px 16px',
+                            borderBottom: '1px solid #ddd',
+                            fontWeight: '600',
+                            fontSize: '14px'
+                          }}>
+                            Components for SKU Reference: {addSkuReference}
+                          </div>
+                          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            <table className="table table-striped table-hover" style={{ marginBottom: 0 }}>
+                                                              <thead style={{ backgroundColor: '#f8f9fa' }}>
+                                  <tr>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Action</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Component Code</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Description</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Formulation Ref</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Material Type</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Components Ref</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Valid From</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Valid To</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Material Group</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Quantity</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>UOM ID</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Base Quantity</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Base UOM</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>% w/w</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Packaging Type</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Packaging Material</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Unit Weight</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Weight UOM</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>% PCR</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>% PIR</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>% Chemical</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>% Bio Sourced</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Material Structure</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Color/Opacity</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Packaging Level</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Dimensions</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Created Date</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>CM Code</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Periods</th>
+                                    <th style={{ padding: '8px', fontSize: '10px' }}>Active</th>
+                                  </tr>
+                                </thead>
+                                                              <tbody>
+                                  {selectedSkuComponents.map((component, index) => (
+                                    <tr key={index}>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px', textAlign: 'center' }}>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm"
+                                          style={{
+                                            backgroundColor: '#dc3545',
+                                            border: 'none',
+                                            color: 'white',
+                                            padding: '2px 6px',
+                                            fontSize: '8px',
+                                            borderRadius: '3px',
+                                            cursor: 'pointer',
+                                            display: 'inline-block'
+                                          }}
+                                          onClick={() => handleDeleteComponent(component.id)}
+                                          title="Delete Component"
+                                        >
+                                          <i className="ri-delete-bin-line" style={{ marginRight: '2px' }}></i>
+                                          Delete
+                                        </button>
+                                      </td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_code}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_description}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.formulation_reference || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.material_type_id || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.components_reference || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_valid_from ? new Date(component.component_valid_from).toLocaleDateString() : '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_valid_to ? new Date(component.component_valid_to).toLocaleDateString() : '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_material_group || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_quantity}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_uom_id}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_base_quantity || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_base_uom_id || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_w_w}%</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_type_id || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_material || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_unit_weight || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.weight_unit_measure_id || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_mechanical_pcr_content || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_mechanical_pir_content || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_chemical_recycled_content || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_bio_sourced || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.material_structure_multimaterials || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_color_opacity || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_level_id || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_dimensions || '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.created_date ? new Date(component.created_date).toLocaleDateString() : '-'}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.cm_code}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.periods}</td>
+                                      <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.is_active ? 'Yes' : 'No'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Purchased Quantity text field - Hidden for now, may be used later */}
                     {/* <div className="col-md-6">
                       <label>Purchased Quantity <span style={{ color: 'red' }}>*</span></label>
@@ -4139,19 +4554,6 @@ const CmSkuDetail: React.FC = () => {
               </div>
               <div className="modal-body" style={{ background: '#fff' }}>
                 <div className="container-fluid">
-                  {/* Mandatory fields note */}
-                  <div style={{ 
-                    background: '#f8f9fa', 
-                    padding: '12px 16px', 
-                    borderRadius: '6px', 
-                    marginBottom: '20px',
-                    border: '1px solid #e9ecef',
-                    fontSize: '14px',
-                    color: '#495057'
-                  }}>
-                    <i className="ri-information-line" style={{ marginRight: 8, color: '#30ea03' }} />
-                    <strong>Note:</strong> Fields marked with <span style={{ color: 'red', fontWeight: 'bold' }}>*</span> are mandatory.
-                  </div>
                   <div className="row g-3">
                     {/* Period */}
                     <div className="col-md-6">
@@ -4180,50 +4582,207 @@ const CmSkuDetail: React.FC = () => {
                       <label>SKU Description <span style={{ color: 'red' }}>*</span></label>
                       <input
                         type="text"
-                        className="form-control"
+                        className={`form-control${editSkuErrors.skuDescription ? ' is-invalid' : ''}`}
                         value={editSkuData.skuDescription}
+                        onChange={e => setEditSkuData({ ...editSkuData, skuDescription: e.target.value })}
+                        disabled={editSkuLoading}
+                      />
+                      {editSkuErrors.skuDescription && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.skuDescription}</div>}
+                    </div>
+                    {/* Formulation Reference text field - Read Only */}
+                    <div className="col-md-6">
+                      <label>Formulation Reference</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editSkuData.formulationReference}
                         readOnly
                         style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
                       />
                     </div>
-                    {/* Purchased Quantity text field - Hidden for now, may be used later */}
-                    {/* <div className="col-md-6">
-                      <label>Purchased Quantity <span style={{ color: 'red' }}>*</span></label>
-                      <input
-                        type="text"
-                        className={`form-control${editSkuErrors.qty ? ' is-invalid' : ''}`}
-                        value={editSkuData.qty}
-                        onChange={e => setEditSkuData({ ...editSkuData, qty: e.target.value })}
-                        placeholder="Enter Purchased Quantity"
-                        disabled={editSkuLoading}
-                      />
-                      {editSkuErrors.qty && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.qty}</div>}
-                    </div> */}
-                    {/* Dual-source SKU text field (optional) */}
-                    <div className="col-md-6">
-                      <label>Dual-source SKU</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editSkuData.dualSource}
-                        onChange={e => setEditSkuData({ ...editSkuData, dualSource: e.target.value })}
-                        placeholder="Enter Dual-source SKU"
-                        disabled={editSkuLoading}
-                      />
+                    {/* SKU Type radio buttons - Read Only */}
+                    <div className="col-md-12">
+                      <label>SKU Type <span style={{ color: 'red' }}>*</span></label>
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ display: 'flex', gap: '20px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: 0.6 }}>
+                            <input
+                              type="radio"
+                              name="editSkuType"
+                              value="internal"
+                              checked={editSkuData.skuType === 'internal'}
+                              disabled={true}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>Internal</span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: 0.6 }}>
+                            <input
+                              type="radio"
+                              name="editSkuType"
+                              value="external"
+                              checked={editSkuData.skuType === 'external'}
+                              disabled={true}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>External</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
-                    {/* SKU Reference searchable box (optional) */}
-                    <div className="col-md-6">
-                      <label>SKU Reference</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={editSkuData.skuReference}
-                        onChange={e => setEditSkuData({ ...editSkuData, skuReference: e.target.value })}
-                        placeholder="Enter SKU Reference"
-                        disabled={editSkuLoading}
-                      />
-                    </div>
-
+                    {/* Conditional fields based on SKU Type - Read Only */}
+                    {editSkuData.skuType === 'internal' && (
+                      <>
+                        <div className="col-md-6">
+                          <label>Reference SKU</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={editSkuData.skuReference}
+                            readOnly
+                            style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label>Name Site</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={editSkuData.skuNameSite}
+                            readOnly
+                            style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                          />
+                        </div>
+                      </>
+                    )}
+                    {editSkuData.skuType === 'external' && (
+                      <div className="col-md-6">
+                        <label>Reference SKU</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={editSkuData.skuReference}
+                          readOnly
+                          style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Component Table for External SKU */}
+                    {editSkuData.skuType === 'external' && showEditComponentTable && editSelectedSkuComponents.length > 0 && (
+                      <div className="col-md-12">
+                        <div style={{ 
+                          marginTop: '20px',
+                          border: '1px solid #ddd',
+                          borderRadius: '8px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            backgroundColor: '#f8f9fa',
+                            padding: '12px 16px',
+                            borderBottom: '1px solid #ddd',
+                            fontWeight: '600',
+                            fontSize: '14px'
+                          }}>
+                            Components for SKU Reference: {editSkuData.skuReference}
+                          </div>
+                          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            <table className="table table-striped table-hover" style={{ marginBottom: 0 }}>
+                              <thead style={{ backgroundColor: '#f8f9fa' }}>
+                                <tr>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Action</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Component Code</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Description</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Formulation Ref</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Material Type</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Components Ref</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Valid From</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Valid To</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Material Group</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Quantity</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>UOM ID</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Base Quantity</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Base UOM</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>% w/w</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Packaging Type</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Packaging Material</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Unit Weight</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Weight UOM</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>% PCR</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>% PIR</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>% Chemical</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>% Bio Sourced</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Material Structure</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Color/Opacity</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Packaging Level</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Dimensions</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Created Date</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>CM Code</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Periods</th>
+                                  <th style={{ padding: '8px', fontSize: '10px' }}>Active</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {editSelectedSkuComponents.map((component, index) => (
+                                  <tr key={index}>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px', textAlign: 'center' }}>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm"
+                                        style={{
+                                          backgroundColor: '#dc3545',
+                                          border: 'none',
+                                          color: 'white',
+                                          padding: '2px 6px',
+                                          fontSize: '8px',
+                                          borderRadius: '3px',
+                                          cursor: 'pointer',
+                                          display: 'inline-block'
+                                        }}
+                                        onClick={() => handleEditDeleteComponent(component.id)}
+                                        title="Delete Component"
+                                      >
+                                        <i className="ri-delete-bin-line" style={{ marginRight: '2px' }}></i>
+                                        Delete
+                                      </button>
+                                    </td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_code}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_description}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.formulation_reference || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.material_type_id || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.components_reference || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_valid_from ? new Date(component.component_valid_from).toLocaleDateString() : '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_valid_to ? new Date(component.component_valid_to).toLocaleDateString() : '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_material_group || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_quantity}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_uom_id}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_base_quantity || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_base_uom_id || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_w_w}%</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_type_id || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_material || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_unit_weight || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.weight_unit_measure_id || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_mechanical_pcr_content || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_mechanical_pir_content || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_chemical_recycled_content || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.percent_bio_sourced || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.material_structure_multimaterials || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_color_opacity || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_packaging_level_id || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.component_dimensions || '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.created_date ? new Date(component.created_date).toLocaleDateString() : '-'}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.cm_code}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.periods}</td>
+                                    <td style={{ padding: '4px 6px', fontSize: '9px' }}>{component.is_active ? 'Yes' : 'No'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {editSkuErrors.server && <div style={{ color: 'red', marginTop: 16, fontWeight: 600 }}>{editSkuErrors.server}</div>}
                   {editSkuSuccess && <div style={{ color: '#30ea03', marginTop: 16, fontWeight: 600 }}>{editSkuSuccess}</div>}
