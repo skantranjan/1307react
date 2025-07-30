@@ -7,29 +7,38 @@ import MultiSelect from '../components/MultiSelect';
 import { Collapse } from 'react-collapse';
 import * as XLSX from 'xlsx';
 
-// Interface for SKU data structure
+/**
+ * SKU Data Interface
+ * Defines the structure of SKU (Stock Keeping Unit) data received from the API
+ * Used for type safety and documentation of expected data structure
+ */
 interface SkuData {
-  id: number;
-  sku_code: string;
-  sku_description: string;
-  cm_code: string;
-  cm_description: string;
-  sku_reference: string;
-  is_active: boolean;
-  created_by: string;
-  created_date: string;
-  period: string; // Added period field
-  purchased_quantity?: string | number | null;
-  dual_source?: string;
-  formulation_reference?: string;
+  id: number;                    // Unique identifier for the SKU
+  sku_code: string;              // SKU code (e.g., "SKU123")
+  sku_description: string;        // Human-readable description of the SKU
+  cm_code: string;               // Component Master code this SKU belongs to
+  cm_description: string;         // Component Master description
+  sku_reference: string;         // Reference SKU for external SKUs
+  is_active: boolean;            // Whether the SKU is currently active
+  created_by: string;            // User who created the SKU
+  created_date: string;          // Date when SKU was created
+  period: string;                // Period/Year for the SKU (e.g., "2024")
+  purchased_quantity?: string | number | null;  // Optional purchased quantity
+  dual_source?: string;          // Optional dual source information
+  formulation_reference?: string; // Optional formulation reference
+  skutype?: string;              // SKU type: 'internal' or 'external'
 }
 
-// Interface for API response
+/**
+ * API Response Interface
+ * Defines the structure of API responses for SKU data
+ * Used for type safety when handling API responses
+ */
 interface ApiResponse {
-  success: boolean;
-  count: number;
-  cm_code: string;
-  data: SkuData[];
+  success: boolean;              // Whether the API call was successful
+  count: number;                 // Total number of SKUs returned
+  cm_code: string;               // Component Master code
+  data: SkuData[];               // Array of SKU data objects
 }
 
 // Add mock component data for table rows (replace with real API data as needed)
@@ -88,69 +97,85 @@ type AddComponentData = {
   period: string;
 };
 
-// Add this helper for info icon
+/**
+ * InfoIcon Component
+ * Displays an information icon with tooltip for user guidance
+ * Used throughout the application to provide contextual help
+ */
 const InfoIcon = ({ info }: { info: string }) => (
   <span style={{ marginLeft: 6, cursor: 'pointer', color: '#888' }} title={info}>
     <i className="ri-information-line" style={{ fontSize: 16, verticalAlign: 'middle' }} />
   </span>
 );
 
+/**
+ * CmSkuDetail Component
+ * Main component for managing SKU (Stock Keeping Unit) details
+ * Handles CRUD operations for SKUs and their components
+ * Features include: filtering, pagination, modal management, and API integration
+ */
 const CmSkuDetail: React.FC = () => {
-  const { cmCode } = useParams();
-  const location = useLocation();
-  const cmDescription = location.state?.cmDescription || '';
-  const status = location.state?.status || '';
-  const navigate = useNavigate();
+  // Extract parameters from URL and navigation state
+  const { cmCode } = useParams();                    // Component Master code from URL
+  const location = useLocation();                    // Current location object
+  const cmDescription = location.state?.cmDescription || '';  // Component Master description
+  const status = location.state?.status || '';       // Status passed from previous page
+  const navigate = useNavigate();                    // Navigation function
 
-  // State for SKU data
-  const [skuData, setSkuData] = useState<SkuData[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pageLoadStartTime, setPageLoadStartTime] = useState<number>(Date.now());
-  const [minimumLoaderComplete, setMinimumLoaderComplete] = useState<boolean>(false);
+  // ===== CORE DATA STATE =====
+  // State for managing SKU data and loading states
+  const [skuData, setSkuData] = useState<SkuData[]>([]);           // Array of all SKU data
+  const [loading, setLoading] = useState<boolean>(true);           // Main loading state
+  const [error, setError] = useState<string | null>(null);         // Error message state
+  const [pageLoadStartTime, setPageLoadStartTime] = useState<number>(Date.now());  // Track page load time
+  const [minimumLoaderComplete, setMinimumLoaderComplete] = useState<boolean>(false);  // Minimum loader display time
 
-  // Modal state
-  const [showComponentModal, setShowComponentModal] = useState(false);
-  const [showSkuModal, setShowSkuModal] = useState(false);
+  // ===== MODAL STATE MANAGEMENT =====
+  // State for controlling various modal dialogs
+  const [showComponentModal, setShowComponentModal] = useState(false);      // Component details modal
+  const [showSkuModal, setShowSkuModal] = useState(false);                 // SKU details modal
 
-  // Copy Data modal state
-  const [showCopyDataModal, setShowCopyDataModal] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [uploadSuccess, setUploadSuccess] = useState('');
-  const [copyFromPeriod, setCopyFromPeriod] = useState<string>('');
-  const [copyToPeriod, setCopyToPeriod] = useState<string>('');
+  // ===== COPY DATA MODAL STATE =====
+  // State for managing data copy functionality via file upload
+  const [showCopyDataModal, setShowCopyDataModal] = useState(false);        // Copy data modal visibility
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);      // Selected file for upload
+  const [uploadLoading, setUploadLoading] = useState(false);                // Upload progress state
+  const [uploadError, setUploadError] = useState('');                       // Upload error message
+  const [uploadSuccess, setUploadSuccess] = useState('');                   // Upload success message
+  const [copyFromPeriod, setCopyFromPeriod] = useState<string>('');        // Source period for copy
+  const [copyToPeriod, setCopyToPeriod] = useState<string>('');            // Target period for copy
 
-  // New state for open index
-  const [openIndex, setOpenIndex] = useState<number | null>(0); // First panel open by default
+  // ===== UI STATE MANAGEMENT =====
+  // State for managing collapsible panels and component data
+  const [openIndex, setOpenIndex] = useState<number | null>(0);            // Currently open SKU panel (first panel open by default)
+  const [componentRows, setComponentRows] = useState(initialComponentRows); // Component table data (mock data for now)
 
-  // Add mock component data for table rows (replace with real API data as needed)
-  const [componentRows, setComponentRows] = useState(initialComponentRows);
-
-  // New state for confirm modal
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingSkuId, setPendingSkuId] = useState<number | null>(null);
-  const [pendingSkuStatus, setPendingSkuStatus] = useState<boolean>(false);
+  // ===== CONFIRMATION MODAL STATE =====
+  // State for managing confirmation dialogs for status changes
+  const [showConfirm, setShowConfirm] = useState(false);                    // Main confirmation modal visibility
+  const [pendingSkuId, setPendingSkuId] = useState<number | null>(null);    // SKU ID waiting for confirmation
+  const [pendingSkuStatus, setPendingSkuStatus] = useState<boolean>(false); // New status to be applied
   
-  // State for inactive SKU modal
-  const [showInactiveModal, setShowInactiveModal] = useState(false);
+  // ===== INACTIVE SKU MODAL STATE =====
+  // State for handling inactive SKU interactions
+  const [showInactiveModal, setShowInactiveModal] = useState(false);        // Modal for inactive SKU actions
   
-  // State for error modals
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  // ===== ERROR MODAL STATE =====
+  // State for displaying error messages to users
+  const [showErrorModal, setShowErrorModal] = useState(false);              // Error modal visibility
+  const [errorMessage, setErrorMessage] = useState('');                     // Error message content
   
-  // State for component confirmation modal
-  const [showComponentConfirm, setShowComponentConfirm] = useState(false);
-  const [pendingComponentId, setPendingComponentId] = useState<number | null>(null);
-  const [pendingComponentStatus, setPendingComponentStatus] = useState<boolean>(false);
-  const [pendingComponentSkuCode, setPendingComponentSkuCode] = useState<string>('');
+  // ===== COMPONENT CONFIRMATION STATE =====
+  // State for managing component status change confirmations
+  const [showComponentConfirm, setShowComponentConfirm] = useState(false);   // Component confirmation modal
+  const [pendingComponentId, setPendingComponentId] = useState<number | null>(null);      // Component ID for status change
+  const [pendingComponentStatus, setPendingComponentStatus] = useState<boolean>(false);    // New component status
+  const [pendingComponentSkuCode, setPendingComponentSkuCode] = useState<string>('');     // SKU code for component
 
-  // State for material type filtering
-  const [selectedMaterialType, setSelectedMaterialType] = useState<string>('packaging'); // Default to packaging (ID 1)
-
-  // State for SKU tabs (Active/Inactive)
-  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
+  // ===== FILTERING AND TAB STATE =====
+  // State for managing filters and tab navigation
+  const [selectedMaterialType, setSelectedMaterialType] = useState<string>('packaging');   // Material type filter (default: packaging)
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');            // Current tab (Active/Inactive SKUs)
 
   // State for component editing modal
   const [showEditComponentModal, setShowEditComponentModal] = useState(false);
@@ -281,49 +306,70 @@ const CmSkuDetail: React.FC = () => {
     setOpenIndex(0);
   };
 
-  // Expose fetchSkuDetails for use after add/edit
+  /**
+   * fetchSkuDetails Function
+   * Fetches SKU data from the API for the current Component Master
+   * This is the main data fetching function that loads all SKU information
+   * Called on component mount and after add/edit operations
+   */
   const fetchSkuDetails = async () => {
-    if (!cmCode) return;
+    if (!cmCode) return;  // Exit if no Component Master code is available
+    
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(true);           // Show loading state
+      setError(null);             // Clear any previous errors
+      
+      // Make API call to fetch SKU details for the Component Master
       const response = await fetch(`http://localhost:3000/sku-details/${cmCode}`, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
+      
+      // Handle HTTP errors
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      // Parse and validate API response
       const result: ApiResponse = await response.json();
       if (result.success) {
-        setSkuData(result.data);
+        setSkuData(result.data);  // Update SKU data state with fetched data
       } else {
         throw new Error('API returned unsuccessful response');
       }
     } catch (err) {
+      // Handle and display errors
       setError(err instanceof Error ? err.message : 'Failed to fetch SKU details');
       console.error('Error fetching SKU details:', err);
     } finally {
-      setLoading(false);
+      setLoading(false);  // Hide loading state regardless of success/failure
     }
   };
 
-  // Fetch SKU details from API
+  /**
+   * useEffect: Initial Data Loading
+   * Triggers when component mounts or cmCode changes
+   * Sets up page load timing and fetches initial SKU data
+   */
   useEffect(() => {
-    setPageLoadStartTime(Date.now());
-    setMinimumLoaderComplete(false);
-    fetchSkuDetails();
+    setPageLoadStartTime(Date.now());     // Record page load start time
+    setMinimumLoaderComplete(false);      // Reset minimum loader state
+    fetchSkuDetails();                   // Fetch initial SKU data
     // eslint-disable-next-line
   }, [cmCode]);
 
-  // Minimum 2 second loader
+  /**
+   * useEffect: Minimum Loader Display
+   * Ensures loader is shown for at least 0.5 seconds for better UX
+   * Prevents flickering when data loads too quickly
+   */
   useEffect(() => {
     const timer = setTimeout(() => {
-      setMinimumLoaderComplete(true);
-    }, 2000);
+      setMinimumLoaderComplete(true);     // Allow loader to complete after 0.5 seconds
+    }, 500);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(timer);     // Cleanup timer on unmount
   }, [pageLoadStartTime]);
 
   // Fetch years from API
@@ -1067,8 +1113,16 @@ const CmSkuDetail: React.FC = () => {
   const [selectedComponentIds, setSelectedComponentIds] = useState<number[]>([]);
   const [componentsToSave, setComponentsToSave] = useState<any[]>([]); // Object to store data for API
 
-  // Search SKU reference function
+  /**
+   * searchSkuReference Function
+   * Searches for external SKU references when user types in the Reference SKU field
+   * This function is called when SKU Type is set to 'external'
+   * Fetches data from GET /skureference/:sku_reference API endpoint
+   * 
+   * @param searchTerm - The search term entered by the user
+   */
   const searchSkuReference = async (searchTerm: string) => {
+    // Clear results if search term is empty
     if (!searchTerm.trim()) {
       setSkuSearchResults([]);
       setShowSkuSearchResults(false);
@@ -1076,46 +1130,51 @@ const CmSkuDetail: React.FC = () => {
       return;
     }
 
-    setSkuSearchLoading(true);
+    setSkuSearchLoading(true);  // Show loading state
     try {
+      // Make API call to search for SKU references
       const response = await fetch(`http://localhost:3000/skureference/${encodeURIComponent(searchTerm)}`);
       const result = await response.json();
       
       if (result.success && result.data) {
-        // Map the results to include period name and handle new structure
-                        const mappedResults = result.data.map((item: any) => {
-                  const skuInfo = item.sku_info;
-                  const components = item.components || [];
-                  
-                  // Extract unique SKU codes from components
-                  const componentSkuCodes = components.map((comp: any) => comp.sku_code).filter((code: string) => code);
-                  const uniqueSkuCodes = Array.from(new Set(componentSkuCodes.flatMap((code: string) => code.split(','))));
-                  
-                  return {
-                    ...skuInfo,
-                    period_name: getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`,
-                    display_text: `${skuInfo.sku_code} (${getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`})`,
-                    components_count: components.length,
-                    total_components: result.total_components || 0,
-                    total_skus: result.total_skus || 0,
-                    components: components, // Store the components data
-                    component_sku_codes: uniqueSkuCodes // Store unique component SKU codes
-                  };
-                });
-        setSkuSearchResults(mappedResults);
-        setShowSkuSearchResults(true);
+        // Map the API response to a more usable format
+        // This handles the nested structure with sku_info and components
+        const mappedResults = result.data.map((item: any) => {
+          const skuInfo = item.sku_info;           // Main SKU information
+          const components = item.components || [];  // Associated components
+          
+          // Extract unique SKU codes from components for display
+          const componentSkuCodes = components.map((comp: any) => comp.sku_code).filter((code: string) => code);
+          const uniqueSkuCodes = Array.from(new Set(componentSkuCodes.flatMap((code: string) => code.split(','))));
+          
+          return {
+            ...skuInfo,
+            period_name: getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`,  // Convert period ID to name
+            display_text: `${skuInfo.sku_code} (${getPeriodTextFromId(skuInfo.period) || `Period ${skuInfo.period}`})`,  // User-friendly display text
+            components_count: components.length,     // Number of components
+            total_components: result.total_components || 0,  // Total components from API
+            total_skus: result.total_skus || 0,     // Total SKUs from API
+            components: components,                  // Store components for later use
+            component_sku_codes: uniqueSkuCodes     // Store unique component SKU codes
+          };
+        });
+        
+        setSkuSearchResults(mappedResults);         // Update search results
+        setShowSkuSearchResults(true);              // Show dropdown
       } else {
+        // Clear results if API returns no data
         setSkuSearchResults([]);
         setShowSkuSearchResults(false);
         setShowComponentTable(false);
       }
     } catch (error) {
+      // Handle API errors
       console.error('Error searching SKU reference:', error);
       setSkuSearchResults([]);
       setShowSkuSearchResults(false);
       setShowComponentTable(false);
     } finally {
-      setSkuSearchLoading(false);
+      setSkuSearchLoading(false);  // Hide loading state
     }
   };
 
@@ -1125,7 +1184,9 @@ const CmSkuDetail: React.FC = () => {
     setShowSkuSearchResults(false);
     setSelectedSkuComponents(selectedSku.components || []);
     setComponentsToSave(selectedSku.components || []); // Store data for API
-    setSelectedComponentIds([]); // Reset selected components
+    // Auto-select all components by default
+    const allComponentIds = (selectedSku.components || []).map((component: any) => component.id);
+    setSelectedComponentIds(allComponentIds);
     setShowComponentTable(true);
   };
 
@@ -1162,22 +1223,42 @@ const CmSkuDetail: React.FC = () => {
     };
   }, [showSkuSearchResults]);
 
-  // Add SKU handler
+  /**
+   * handleAddSkuSave Function
+   * Handles the creation of new SKUs via POST API call
+   * This is the main function for adding new SKUs to the system
+   * Includes client-side validation, API call, and success/error handling
+   * 
+   * API Endpoint: POST /sku-details/add
+   * Request Format: 
+   * - URL Parameter: skutype (SKU type: internal/external)
+   * - Body: JSON with sku_data object and components array
+   */
   const handleAddSkuSave = async () => {
-    // Client-side validation
+    // ===== CLIENT-SIDE VALIDATION =====
+    // Validate required fields before making API call
     let errors = { sku: '', skuDescription: '', period: '', skuType: '', server: '' };
     if (!addSku.trim()) errors.sku = 'A value is required for SKU code';
     if (!addSkuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
     if (!addSkuPeriod) errors.period = 'A value is required for the Period';
-    if (!addSkuType) errors.skuType = 'A value is required for SKU Type';
     setAddSkuErrors(errors);
     setAddSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period || errors.skuType) return;
+    if (errors.sku || errors.skuDescription || errors.period) return;
 
-    // POST to API
-    setAddSkuLoading(true);
+    // ===== API CALL PREPARATION =====
+    setAddSkuLoading(true);  // Show loading state
     try {
-      const response = await fetch('http://localhost:3000/sku-details/add', {
+      // Debug logging for troubleshooting
+      console.log('Sending SKU Type:', addSkuType);
+      const apiUrl = `http://localhost:3000/sku-details/add?skutype=${encodeURIComponent(addSkuType)}`;
+      console.log('API URL:', apiUrl);
+      console.log('Complete request details:', {
+        url: apiUrl,
+        method: 'POST',
+        skutype_param: addSkuType,
+        skutype_in_body: addSkuType
+      });
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1190,7 +1271,8 @@ const CmSkuDetail: React.FC = () => {
             cm_code: cmCode,
             sku_reference: addSkuReference,
             period: addSkuPeriod,
-            formulation_reference: addSkuFormulationReference
+            formulation_reference: addSkuFormulationReference,
+            skutype: addSkuType  // Also send in JSON body as backup
           },
           components: componentsToSave.map(component => ({
             component_code: component.component_code,
@@ -1402,7 +1484,7 @@ const CmSkuDetail: React.FC = () => {
       sku: sku.sku_code || '',
       skuDescription: sku.sku_description || '',
       formulationReference: sku.formulation_reference || '',
-      skuType: 'internal', // Default, can be updated based on existing data
+      skuType: sku.skutype || 'internal', // Use actual SKU type from data
       skuReference: sku.sku_reference || '',
       skuNameSite: '', // Add if you have this field in SKU data
       qty: sku.purchased_quantity != null ? String(sku.purchased_quantity) : '',
@@ -1420,10 +1502,9 @@ const CmSkuDetail: React.FC = () => {
     if (!editSkuData.sku.trim()) errors.sku = 'A value is required for SKU code';
     if (!editSkuData.skuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
     if (!editSkuData.period) errors.period = 'A value is required for the Period';
-    if (!editSkuData.skuType) errors.skuType = 'A value is required for SKU Type';
     setEditSkuErrors(errors);
     setEditSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period || errors.skuType) return;
+    if (errors.sku || errors.skuDescription || errors.period) return;
 
     // PUT to API
     setEditSkuLoading(true);
@@ -1434,14 +1515,7 @@ const CmSkuDetail: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          sku_code: editSkuData.sku,
-          sku_description: editSkuData.skuDescription,
-          formulation_reference: editSkuData.formulationReference,
-          period: editSkuData.period,
-          sku_type: editSkuData.skuType,
-          sku_reference: editSkuData.skuReference,
-          sku_name_site: editSkuData.skuNameSite,
-          dual_source: editSkuData.dualSource
+          sku_description: editSkuData.skuDescription
         })
       });
       const result = await response.json();
@@ -2961,7 +3035,10 @@ const CmSkuDetail: React.FC = () => {
                   <Collapse isOpened={openIndex === index}>
                     <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
                       <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
-                        <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                        <div>
+                          <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                          <p><strong>SKU Type: </strong> {sku.skutype || 'internal'}</p>
+                        </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button className="add-sku-btn btnCommon btnGreen filterButtons"
                             style={{
@@ -2987,59 +3064,69 @@ const CmSkuDetail: React.FC = () => {
                             <span>Edit SKU</span>
                             <i className="ri-pencil-line" style={{ marginLeft: 5 }}/>
                           </button>
-                          <button
-                            className="add-sku-btn btnCommon btnGreen filterButtons"
-                            style={{ 
-                              backgroundColor: '#30ea03', 
-                              color: '#000', 
-                              minWidth: 110, 
-                              fontSize: 13,
-                              padding: '6px 12px',
-                              border: 'none',
-                              borderRadius: 6,
-                              fontWeight: 'bold',
-                              cursor: 'pointer',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}
-                            onClick={e => { e.stopPropagation(); setSelectedSkuCode(sku.sku_code); setShowAddComponentModal(true); }}
-                          >
-                            <span>Add Component</span>
-                            <i className="ri-add-circle-line" style={{ marginLeft: 5 }}></i>
-                          </button>
+                          {/* ===== CONDITIONAL RENDERING: ADD COMPONENT BUTTON ===== */}
+                          {/* Only show "Add Component" button for external SKUs */}
+                          {/* This prevents internal SKUs from having components added */}
+                          {sku.skutype === 'external' && (
+                            <button
+                              className="add-sku-btn btnCommon btnGreen filterButtons"
+                              style={{ 
+                                backgroundColor: '#30ea03', 
+                                color: '#000', 
+                                minWidth: 110, 
+                                fontSize: 13,
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: 6,
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                              onClick={e => { e.stopPropagation(); setSelectedSkuCode(sku.sku_code); setShowAddComponentModal(true); }}
+                            >
+                              <span>Add Component</span>
+                              <i className="ri-add-circle-line" style={{ marginLeft: 5 }}></i>
+                            </button>
+                          )}
                         </div>
                       </div>
                      
-                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-                        <span style={{ fontWeight: 600, marginRight: 8 }}>Material Type:</span>
-                        <label style={{ display: 'flex', alignItems: 'center', marginRight: 16, cursor: 'pointer' }}>
-                          <input 
-                            type="radio" 
-                            name={`material-type-${sku.id}`} 
-                            value="packaging"
-                            checked={selectedMaterialType === 'packaging'}
-                            onChange={(e) => setSelectedMaterialType(e.target.value)}
-                            style={{ marginRight: 6 }}
-                          />
-                          <span>Packaging </span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', marginRight: 16, cursor: 'pointer' }}>
-                          <input 
-                            type="radio" 
-                            name={`material-type-${sku.id}`} 
-                            value="raw_material"
-                            checked={selectedMaterialType === 'raw_material'}
-                            onChange={(e) => setSelectedMaterialType(e.target.value)}
-                            style={{ marginRight: 6 }}
-                          />
-                          <span>Raw Material</span>
-                        </label>
-                      </div>
-                      
-
-                      
-                      {/* Component Table Header */}
+                          {/* ===== CONDITIONAL RENDERING: EXTERNAL SKU FEATURES ===== */}
+                          {/* Only show Material Type filters and Component Table for external SKUs */}
+                          {/* This provides component management functionality only for external SKUs */}
+                          {sku.skutype === 'external' && (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                            <span style={{ fontWeight: 600, marginRight: 8 }}>Material Type:</span>
+                            <label style={{ display: 'flex', alignItems: 'center', marginRight: 16, cursor: 'pointer' }}>
+                              <input 
+                                type="radio" 
+                                name={`material-type-${sku.id}`} 
+                                value="packaging"
+                                checked={selectedMaterialType === 'packaging'}
+                                onChange={(e) => setSelectedMaterialType(e.target.value)}
+                                style={{ marginRight: 6 }}
+                              />
+                              <span>Packaging </span>
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', marginRight: 16, cursor: 'pointer' }}>
+                              <input 
+                                type="radio" 
+                                name={`material-type-${sku.id}`} 
+                                value="raw_material"
+                                checked={selectedMaterialType === 'raw_material'}
+                                onChange={(e) => setSelectedMaterialType(e.target.value)}
+                                style={{ marginRight: 6 }}
+                              />
+                              <span>Raw Material</span>
+                            </label>
+                          </div>
+                          
+                          
+                          
+                          {/* Component Table Header */}
                       <div style={{ 
                         background: '#f8f9fa', 
                         border: '1px solid #e9ecef',
@@ -3516,6 +3603,8 @@ const CmSkuDetail: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                        </>
+                      )}
                     </div>
                   </Collapse>
                 </div>
@@ -3597,7 +3686,10 @@ const CmSkuDetail: React.FC = () => {
                           <Collapse isOpened={openIndex === index}>
                             <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
                               <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
-                                <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                                <div>
+                                  <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
+                                  <p><strong>SKU Type: </strong> {sku.skutype || 'internal'}</p>
+                                </div>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                   <button
                                     style={{
@@ -4292,7 +4384,7 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU Type radio buttons - Full row */}
                     <div className="col-md-12">
-                      <label>SKU Type <span style={{ color: 'red' }}>*</span></label>
+                      <label>SKU Type</label>
                       <div style={{ marginTop: '8px' }}>
                         <div style={{ display: 'flex', gap: '20px' }}>
                           <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 0 }}>
@@ -4337,13 +4429,13 @@ const CmSkuDetail: React.FC = () => {
                           />
                         </div>
                         <div className="col-md-6">
-                          <label>Name Site</label>
+                          <label> Site</label>
                           <input
                             type="text"
                             className="form-control"
                             value={addSkuNameSite}
                             onChange={e => setAddSkuNameSite(e.target.value)}
-                            placeholder="Enter Name Site"
+                            placeholder="Enter Site"
                             disabled={addSkuLoading}
                           />
                         </div>
@@ -4679,7 +4771,7 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU Type radio buttons - Read Only */}
                     <div className="col-md-12">
-                      <label>SKU Type <span style={{ color: 'red' }}>*</span></label>
+                      <label>SKU Type</label>
                       <div style={{ marginTop: '8px' }}>
                         <div style={{ display: 'flex', gap: '20px' }}>
                           <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: 0.6 }}>
