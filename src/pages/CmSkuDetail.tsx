@@ -1801,9 +1801,9 @@ const CmSkuDetail: React.FC = () => {
     
     // Validation for required fields
     const errors: Record<string, string> = {};
-    if (!selectedSkuCode) errors.skuCode = 'A value is required for SKU Code';
+    if (!addComponentData.componentType) errors.componentType = 'A value is required for Component Type';
     if (!addComponentData.componentCode) errors.componentCode = 'A value is required for Component Code';
-    if (selectedYears.length === 0) errors.year = 'A value is required for Year';
+    if (!addComponentData.componentDescription) errors.componentDescription = 'A value is required for Component Description';
     
     setAddComponentErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -1816,42 +1816,58 @@ const CmSkuDetail: React.FC = () => {
       const formData = new FormData();
 
       // ===== REQUIRED FIELDS =====
-      formData.append('cm_code', cmCode || '');
-      formData.append('year', selectedYears.length > 0 ? selectedYears[0] : '');
-      formData.append('sku_code', selectedSkuCode || '');
-      formData.append('component_code', addComponentData.componentCode || '');
+      // Ensure we're passing simple string values to avoid circular references
+      const cmCodeString = String(cmCode || '');
+      const yearString = selectedYears.length > 0 ? String(selectedYears[0]) : '';
+      const skuCodeString = String(selectedSkuCode || '');
+      const componentCodeString = String(addComponentData.componentCode || '');
+      
+      // Debug logging for form data values
+      console.log('Form data values:', {
+        cmCode: cmCodeString,
+        year: yearString,
+        skuCode: skuCodeString,
+        componentCode: componentCodeString
+      });
+      
+      // Start with minimal required fields only
+      formData.append('cm_code', cmCodeString);
+      formData.append('year', yearString);
+      formData.append('sku_code', skuCodeString);
+      formData.append('component_code', componentCodeString);
       
       // Debug logging for year and periods
       console.log('Selected Years:', selectedYears);
       console.log('Year being sent:', selectedYears.length > 0 ? selectedYears[0] : '');
       
       // ===== OPTIONAL COMPONENT FIELDS =====
-      formData.append('component_description', addComponentData.componentDescription || '');
+      // Convert all values to strings to prevent circular reference issues
+      formData.append('component_description', String(addComponentData.componentDescription || ''));
       formData.append('formulation_reference', '');
-      formData.append('material_type_id', addComponentData.componentType || '');
+      formData.append('material_type_id', String(addComponentData.componentType || ''));
       formData.append('components_reference', '');
-      formData.append('component_valid_from', addComponentData.validityFrom || '');
-      formData.append('component_valid_to', addComponentData.validityTo || '');
-      formData.append('component_material_group', addComponentData.componentCategory || '');
-      formData.append('component_quantity', addComponentData.componentQuantity || '');
-      formData.append('component_uom_id', addComponentData.componentUnitOfMeasure || '');
-      formData.append('component_base_quantity', addComponentData.componentBaseQuantity || '');
-      formData.append('component_base_uom_id', addComponentData.componentBaseUnitOfMeasure || '');
-      formData.append('percent_w_w', addComponentData.wW || '');
+      formData.append('component_valid_from', String(addComponentData.validityFrom || ''));
+      formData.append('component_valid_to', String(addComponentData.validityTo || ''));
+      formData.append('component_material_group', String(addComponentData.componentCategory || ''));
+      formData.append('component_quantity', String(addComponentData.componentQuantity || ''));
+      formData.append('component_uom_id', String(addComponentData.componentUnitOfMeasure || ''));
+      formData.append('component_base_quantity', String(addComponentData.componentBaseQuantity || ''));
+      formData.append('component_base_uom_id', String(addComponentData.componentBaseUnitOfMeasure || ''));
+      formData.append('percent_w_w', String(addComponentData.wW || ''));
       formData.append('evidence', '');
-      formData.append('component_packaging_type_id', addComponentData.componentPackagingType || '');
-      formData.append('component_packaging_material', addComponentData.componentPackagingMaterial || '');
+      formData.append('component_packaging_type_id', String(addComponentData.componentPackagingType || ''));
+      formData.append('component_packaging_material', String(addComponentData.componentPackagingMaterial || ''));
       formData.append('helper_column', '');
-      formData.append('component_unit_weight', addComponentData.componentUnitWeight || '');
-      formData.append('weight_unit_measure_id', addComponentData.componentWeightUnitOfMeasure || '');
-      formData.append('percent_mechanical_pcr_content', addComponentData.percentPostConsumer || '');
-      formData.append('percent_mechanical_pir_content', addComponentData.percentPostIndustrial || '');
-      formData.append('percent_chemical_recycled_content', addComponentData.percentChemical || '');
-      formData.append('percent_bio_sourced', addComponentData.percentBioSourced || '');
-      formData.append('material_structure_multimaterials', addComponentData.materialStructure || '');
-      formData.append('component_packaging_color_opacity', addComponentData.packagingColour || '');
-      formData.append('component_packaging_level_id', addComponentData.packagingLevel || '');
-      formData.append('component_dimensions', addComponentData.componentDimensions || '');
+      formData.append('component_unit_weight', String(addComponentData.componentUnitWeight || ''));
+      formData.append('weight_unit_measure_id', String(addComponentData.componentWeightUnitOfMeasure || ''));
+      formData.append('percent_mechanical_pcr_content', String(addComponentData.percentPostConsumer || ''));
+      formData.append('percent_mechanical_pir_content', String(addComponentData.percentPostIndustrial || ''));
+      formData.append('percent_chemical_recycled_content', String(addComponentData.percentChemical || ''));
+      formData.append('percent_bio_sourced', String(addComponentData.percentBioSourced || ''));
+      formData.append('material_structure_multimaterials', String(addComponentData.materialStructure || ''));
+      formData.append('component_packaging_color_opacity', String(addComponentData.packagingColour || ''));
+      formData.append('component_packaging_level_id', String(addComponentData.packagingLevel || ''));
+      formData.append('component_dimensions', String(addComponentData.componentDimensions || ''));
       formData.append('packaging_specification_evidence', '');
       formData.append('evidence_of_recycled_or_bio_source', '');
       formData.append('category_entry_id', '');
@@ -1881,37 +1897,36 @@ const CmSkuDetail: React.FC = () => {
         });
       }
       
-      // Add other optional fields
-      if (addComponentData.componentType) formData.append('material_type_id', addComponentData.componentType);
-      if (addComponentData.validityFrom) formData.append('component_valid_from', addComponentData.validityFrom);
-      if (addComponentData.validityTo) formData.append('component_valid_to', addComponentData.validityTo);
-      if (addComponentData.componentCategory) formData.append('component_material_group', addComponentData.componentCategory);
-      if (addComponentData.componentBaseQuantity) formData.append('component_base_quantity', addComponentData.componentBaseQuantity);
-      if (addComponentData.componentBaseUnitOfMeasure) formData.append('component_base_uom_id', addComponentData.componentBaseUnitOfMeasure);
-      if (addComponentData.componentPackagingType) formData.append('component_packaging_type_id', addComponentData.componentPackagingType);
-      if (addComponentData.componentUnitWeight) formData.append('component_unit_weight', addComponentData.componentUnitWeight);
-      if (addComponentData.componentWeightUnitOfMeasure) formData.append('weight_unit_measure_id', addComponentData.componentWeightUnitOfMeasure);
-      if (addComponentData.percentPostConsumer) formData.append('percent_mechanical_pcr_content', addComponentData.percentPostConsumer);
-      if (addComponentData.percentPostIndustrial) formData.append('percent_mechanical_pir_content', addComponentData.percentPostIndustrial);
-      if (addComponentData.percentChemical) formData.append('percent_chemical_recycled_content', addComponentData.percentChemical);
-      if (addComponentData.percentBioSourced) formData.append('percent_bio_sourced', addComponentData.percentBioSourced);
-      if (addComponentData.materialStructure) formData.append('material_structure_multimaterials', addComponentData.materialStructure);
-      if (addComponentData.packagingColour) formData.append('component_packaging_color_opacity', addComponentData.packagingColour);
-      if (addComponentData.packagingLevel) formData.append('component_packaging_level_id', addComponentData.packagingLevel);
-      if (addComponentData.componentDimensions) formData.append('component_dimensions', addComponentData.componentDimensions);
+      // Note: All fields are already added above with proper string conversion
+      // No need to add them again here to avoid duplicates
 
       // ===== FILE UPLOADS - KPI CATEGORIES =====
-      const category1Files = uploadedFiles.filter(upload => upload.categories.includes('1')).flatMap(upload => upload.files);
-      const category2Files = uploadedFiles.filter(upload => upload.categories.includes('2')).flatMap(upload => upload.files);
-      const category3Files = uploadedFiles.filter(upload => upload.categories.includes('3')).flatMap(upload => upload.files);
-      const category4Files = uploadedFiles.filter(upload => upload.categories.includes('4')).flatMap(upload => upload.files);
+      // Extract only the File objects from uploadedFiles to avoid circular references
+      const category1Files = uploadedFiles
+        .filter(upload => upload.categories.includes('1'))
+        .flatMap(upload => upload.files)
+        .filter(file => file instanceof File);
+      
+      const category2Files = uploadedFiles
+        .filter(upload => upload.categories.includes('2'))
+        .flatMap(upload => upload.files)
+        .filter(file => file instanceof File);
+      
+      const category3Files = uploadedFiles
+        .filter(upload => upload.categories.includes('3'))
+        .flatMap(upload => upload.files)
+        .filter(file => file instanceof File);
+      
+      const category4Files = uploadedFiles
+        .filter(upload => upload.categories.includes('4'))
+        .flatMap(upload => upload.files)
+        .filter(file => file instanceof File);
 
       // Debug logging
-      console.log('Uploaded files state:', uploadedFiles);
-      console.log('Category 1 files (Weight):', category1Files);
-      console.log('Category 2 files (Weight UOM):', category2Files);
-      console.log('Category 3 files (Packaging Type):', category3Files);
-      console.log('Category 4 files (Material Type):', category4Files);
+      console.log('Category 1 files (Weight):', category1Files.length);
+      console.log('Category 2 files (Weight UOM):', category2Files.length);
+      console.log('Category 3 files (Packaging Type):', category3Files.length);
+      console.log('Category 4 files (Material Type):', category4Files.length);
 
       // Weight files
       if (category1Files.length > 0) {
@@ -1947,10 +1962,8 @@ const CmSkuDetail: React.FC = () => {
 
       // Debug: Log FormData contents
       console.log('FormData contents:');
-      const formDataEntries: [string, FormDataEntryValue][] = [];
       formData.forEach((value, key) => {
-        formDataEntries.push([key, value]);
-        console.log(key, value);
+        console.log(key, typeof value, value instanceof File ? 'File: ' + (value as File).name : value);
       });
 
       // Make the API call
@@ -3034,11 +3047,10 @@ const CmSkuDetail: React.FC = () => {
                   </div>
                   <Collapse isOpened={openIndex === index}>
                     <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
-                      <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
-                          <p><strong>SKU Type: </strong> {sku.skutype || 'internal'}</p>
-                        </div>
+                                                    <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                  <p><strong>Reference SKU: </strong> {sku.sku_reference} <span style={{ margin: '0 8px' }}>||</span> <strong>SKU Type: </strong> {sku.skutype || 'internal'}</p>
+                                </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button className="add-sku-btn btnCommon btnGreen filterButtons"
                             style={{
@@ -3687,8 +3699,7 @@ const CmSkuDetail: React.FC = () => {
                             <div className="panel-body" style={{ minHeight: 80, padding: 24, position: 'relative' }}>
                               <div style={{ display: 'flex', marginBottom: 8, gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                  <p><strong>Reference SKU: </strong> {sku.sku_reference}</p>
-                                  <p><strong>SKU Type: </strong> {sku.skutype || 'internal'}</p>
+                                  <p><strong>Reference SKU: </strong> {sku.sku_reference} <span style={{ margin: '0 8px' }}>||</span> <strong>SKU Type: </strong> {sku.skutype || 'internal'}</p>
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                   <button
@@ -4314,7 +4325,9 @@ const CmSkuDetail: React.FC = () => {
                   <div className="row g-3">
                     {/* Period dropdown */}
                     <div className="col-md-6">
-                      <label>Period <span style={{ color: 'red' }}>*</span></label>
+                      <label>Period <span style={{ color: 'red' }}>*</span>
+                        <InfoIcon info="Select the time period for this SKU (e.g., 2024, July 2025 to June 2026)" />
+                      </label>
                       <div style={{ position: 'relative' }}>
                         <select
                           className={`form-control${addSkuErrors.period ? ' is-invalid' : ''}`}
@@ -4348,7 +4361,9 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU text field */}
                     <div className="col-md-6">
-                      <label>SKU <span style={{ color: 'red' }}>*</span></label>
+                      <label>SKU <span style={{ color: 'red' }}>*</span>
+                        <InfoIcon info="Enter the unique SKU code identifier for this stock keeping unit" />
+                      </label>
                       <input
                         type="text"
                         className={`form-control${addSkuErrors.sku ? ' is-invalid' : ''}`}
@@ -4360,7 +4375,9 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU Description text field */}
                     <div className="col-md-6">
-                      <label>SKU Description <span style={{ color: 'red' }}>*</span></label>
+                      <label>SKU Description <span style={{ color: 'red' }}>*</span>
+                        <InfoIcon info="Provide a clear, descriptive name for this SKU" />
+                      </label>
                       <input
                         type="text"
                         className={`form-control${addSkuErrors.skuDescription ? ' is-invalid' : ''}`}
@@ -4372,7 +4389,9 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Formulation Reference text field */}
                     <div className="col-md-6">
-                      <label>Formulation Reference</label>
+                      <label>Formulation Reference
+                        <InfoIcon info="Optional reference to the formulation or recipe associated with this SKU" />
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -4382,68 +4401,12 @@ const CmSkuDetail: React.FC = () => {
                         disabled={addSkuLoading}
                       />
                     </div>
-                    {/* SKU Type radio buttons - Full row */}
-                    <div className="col-md-12">
-                      <label>SKU Type</label>
-                      <div style={{ marginTop: '8px' }}>
-                        <div style={{ display: 'flex', gap: '20px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 0 }}>
-                            <input
-                              type="radio"
-                              name="skuType"
-                              value="internal"
-                              checked={addSkuType === 'internal'}
-                              onChange={e => setAddSkuType(e.target.value)}
-                              disabled={addSkuLoading}
-                              style={{ marginRight: '8px' }}
-                            />
-                            <span style={{ fontSize: '14px', fontWeight: '500' }}>Internal</span>
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 0 }}>
-                            <input
-                              type="radio"
-                              name="skuType"
-                              value="external"
-                              checked={addSkuType === 'external'}
-                              onChange={e => setAddSkuType(e.target.value)}
-                              disabled={addSkuLoading}
-                              style={{ marginRight: '8px' }}
-                            />
-                            <span style={{ fontSize: '14px', fontWeight: '500' }}>External</span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Conditional fields based on SKU Type */}
-                    {addSkuType === 'internal' && (
-                      <>
-                        <div className="col-md-6">
-                          <label>Reference SKU</label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={addSkuReference}
-                            onChange={e => setAddSkuReference(e.target.value)}
-                            placeholder="Enter Reference SKU"
-                            disabled={addSkuLoading}
-                          />
-                        </div>
-                        <div className="col-md-6">
-                          <label> Site</label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={addSkuNameSite}
-                            onChange={e => setAddSkuNameSite(e.target.value)}
-                            placeholder="Enter Site"
-                            disabled={addSkuLoading}
-                          />
-                        </div>
-                      </>
-                    )}
-                    {addSkuType === 'external' && (
-                      <div className="col-md-6">
-                        <label>Reference SKU</label>
+                    {/* Reference SKU and SKU Type in one row */}
+                    <div className="col-md-6">
+                      <label>Reference SKU
+                        <InfoIcon info="For internal SKUs: Enter the reference SKU code. For external SKUs: Search and select from existing SKUs" />
+                      </label>
+                      {addSkuType === 'external' ? (
                         <div style={{ position: 'relative' }} className="sku-search-container">
                           <input
                             type="text"
@@ -4504,6 +4467,65 @@ const CmSkuDetail: React.FC = () => {
                             </div>
                           )}
                         </div>
+                      ) : (
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={addSkuReference}
+                          onChange={e => setAddSkuReference(e.target.value)}
+                          placeholder="Enter Reference SKU"
+                          disabled={addSkuLoading}
+                        />
+                      )}
+                    </div>
+                    {/* SKU Type radio buttons */}
+                    <div className="col-md-6">
+                      <label>SKU Type
+                        <InfoIcon info="Select whether this is an internal SKU (created within the system) or external SKU (referenced from external sources)" />
+                      </label>
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ display: 'flex', gap: '20px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 0 }}>
+                            <input
+                              type="radio"
+                              name="skuType"
+                              value="internal"
+                              checked={addSkuType === 'internal'}
+                              onChange={e => setAddSkuType(e.target.value)}
+                              disabled={addSkuLoading}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>Internal</span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: 0 }}>
+                            <input
+                              type="radio"
+                              name="skuType"
+                              value="external"
+                              checked={addSkuType === 'external'}
+                              onChange={e => setAddSkuType(e.target.value)}
+                              disabled={addSkuLoading}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>External</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Site field for internal SKU */}
+                    {addSkuType === 'internal' && (
+                      <div className="col-md-6">
+                        <label>Site
+                          <InfoIcon info="Enter the site or location where this SKU is used or manufactured" />
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={addSkuNameSite}
+                          onChange={e => setAddSkuNameSite(e.target.value)}
+                          placeholder="Enter Site"
+                          disabled={addSkuLoading}
+                        />
                       </div>
                     )}
                     
@@ -4681,8 +4703,6 @@ const CmSkuDetail: React.FC = () => {
                   onMouseOut={e => e.currentTarget.style.color = '#000'}
                 >
                   {addSkuLoading ? 'Saving...' : 'Save'}
-
-                  
                 </button>
               </div>
             </div>
@@ -4726,7 +4746,9 @@ const CmSkuDetail: React.FC = () => {
                   <div className="row g-3">
                     {/* Period */}
                     <div className="col-md-6">
-                      <label>Period <span style={{ color: 'red' }}>*</span></label>
+                      <label>Period <span style={{ color: 'red' }}>*</span>
+                        <InfoIcon info="The time period for this SKU (read-only)" />
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -4737,7 +4759,9 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU */}
                     <div className="col-md-6">
-                      <label>SKU <span style={{ color: 'red' }}>*</span></label>
+                      <label>SKU <span style={{ color: 'red' }}>*</span>
+                        <InfoIcon info="The unique SKU code identifier (read-only)" />
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -4748,7 +4772,9 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU Description */}
                     <div className="col-md-6">
-                      <label>SKU Description <span style={{ color: 'red' }}>*</span></label>
+                      <label>SKU Description <span style={{ color: 'red' }}>*</span>
+                        <InfoIcon info="Provide a clear, descriptive name for this SKU" />
+                      </label>
                       <input
                         type="text"
                         className={`form-control${editSkuErrors.skuDescription ? ' is-invalid' : ''}`}
@@ -4760,7 +4786,9 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Formulation Reference text field - Read Only */}
                     <div className="col-md-6">
-                      <label>Formulation Reference</label>
+                      <label>Formulation Reference
+                        <InfoIcon info="Reference to the formulation or recipe associated with this SKU (read-only)" />
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -4769,9 +4797,24 @@ const CmSkuDetail: React.FC = () => {
                         style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
                       />
                     </div>
+                    {/* Reference SKU and SKU Type in one row */}
+                    <div className="col-md-6">
+                      <label>Reference SKU
+                        <InfoIcon info="For internal SKUs: The reference SKU code. For external SKUs: The external SKU reference (read-only)" />
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editSkuData.skuReference}
+                        readOnly
+                        style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                      />
+                    </div>
                     {/* SKU Type radio buttons - Read Only */}
-                    <div className="col-md-12">
-                      <label>SKU Type</label>
+                    <div className="col-md-6">
+                      <label>SKU Type
+                        <InfoIcon info="Whether this is an internal SKU (created within the system) or external SKU (referenced from external sources) (read-only)" />
+                      </label>
                       <div style={{ marginTop: '8px' }}>
                         <div style={{ display: 'flex', gap: '20px' }}>
                           <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: 0.6 }}>
@@ -4799,38 +4842,16 @@ const CmSkuDetail: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    {/* Conditional fields based on SKU Type - Read Only */}
+                    {/* Site field for internal SKU */}
                     {editSkuData.skuType === 'internal' && (
-                      <>
-                        <div className="col-md-6">
-                          <label>Reference SKU</label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={editSkuData.skuReference}
-                            readOnly
-                            style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
-                          />
-                        </div>
-                        <div className="col-md-6">
-                          <label>Name Site</label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={editSkuData.skuNameSite}
-                            readOnly
-                            style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
-                          />
-                        </div>
-                      </>
-                    )}
-                    {editSkuData.skuType === 'external' && (
                       <div className="col-md-6">
-                        <label>Reference SKU</label>
+                        <label>Name Site
+                          <InfoIcon info="The site or location where this SKU is used or manufactured (read-only)" />
+                        </label>
                         <input
                           type="text"
                           className="form-control"
-                          value={editSkuData.skuReference}
+                          value={editSkuData.skuNameSite}
                           readOnly
                           style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
                         />

@@ -28,10 +28,12 @@ interface CmCode {
 // Interface for new 3PM data
 interface New3PMData {
   period: string;
-  srmm: string;
+  srm_name: string;
+  srm_email: string;
   cm_code: string;
   cm_description: string;
   region: string;
+  spokes: Array<{name: string, email: string, signatory: boolean}>;
 }
 
 // Interface for Period data structure
@@ -88,13 +90,17 @@ const CmDashboard: React.FC = () => {
   const [showAdd3PMModal, setShowAdd3PMModal] = useState(false);
   const [new3PMData, setNew3PMData] = useState<New3PMData>({
     period: '',
-    srmm: '',
+    srm_name: '',
+    srm_email: '',
     cm_code: '',
     cm_description: '',
-    region: ''
+    region: '',
+    spokes: [{name: '', email: '', signatory: false}]
   });
   const [add3PMLoading, setAdd3PMLoading] = useState(false);
   const [add3PMError, setAdd3PMError] = useState<string | null>(null);
+  const [showSignatoryModal, setShowSignatoryModal] = useState(false);
+  const [signatoryModalMessage, setSignatoryModalMessage] = useState('');
 
   const [appliedFilters, setAppliedFilters] = useState<{
     cmCodes: string[];
@@ -671,10 +677,12 @@ const CmDashboard: React.FC = () => {
     setShowAdd3PMModal(true);
     setNew3PMData({
       period: '',
-      srmm: '',
+      srm_name: '',
+      srm_email: '',
       cm_code: '',
       cm_description: '',
-      region: ''
+      region: '',
+      spokes: [{name: '', email: '', signatory: false}]
     });
     setAdd3PMError(null);
   };
@@ -684,10 +692,12 @@ const CmDashboard: React.FC = () => {
     setShowAdd3PMModal(false);
     setNew3PMData({
       period: '',
-      srmm: '',
+      srm_name: '',
+      srm_email: '',
       cm_code: '',
       cm_description: '',
-      region: ''
+      region: '',
+      spokes: [{name: '', email: '', signatory: false}]
     });
     setAdd3PMError(null);
   };
@@ -700,6 +710,45 @@ const CmDashboard: React.FC = () => {
     }));
   };
 
+  // Handle spoke field changes
+  const handleSpokeChange = (index: number, field: 'name' | 'email' | 'signatory', value: string | boolean) => {
+    // Special validation for signatory checkbox
+    if (field === 'signatory' && value === true) {
+      // Check if any other spoke is already selected as signatory
+      const hasOtherSignatory = new3PMData.spokes.some((spoke, i) => i !== index && spoke.signatory);
+      if (hasOtherSignatory) {
+        setSignatoryModalMessage('You can select only one signatory. Deselect to choose other.');
+        setShowSignatoryModal(true);
+        return; // Don't update the state
+      }
+    }
+    
+    setNew3PMData(prev => ({
+      ...prev,
+      spokes: prev.spokes.map((spoke, i) => 
+        i === index ? { ...spoke, [field]: value } : spoke
+      )
+    }));
+  };
+
+  // Add new spoke
+  const handleAddSpoke = () => {
+    setNew3PMData(prev => ({
+      ...prev,
+      spokes: [...prev.spokes, {name: '', email: '', signatory: false}]
+    }));
+  };
+
+  // Remove spoke
+  const handleRemoveSpoke = (index: number) => {
+    if (new3PMData.spokes.length > 1) {
+      setNew3PMData(prev => ({
+        ...prev,
+        spokes: prev.spokes.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
   // Handle Add 3PM form submission
   const handleAdd3PMSave = async () => {
     try {
@@ -710,8 +759,11 @@ const CmDashboard: React.FC = () => {
       if (!new3PMData.period.trim()) {
         throw new Error('Period is required');
       }
-      if (!new3PMData.srmm.trim()) {
-        throw new Error('SRRM is required');
+      if (!new3PMData.srm_name.trim()) {
+        throw new Error('SRM Name is required');
+      }
+      if (!new3PMData.srm_email.trim()) {
+        throw new Error('SRM Email is required');
       }
       if (!new3PMData.cm_code.trim()) {
         throw new Error('3PM Code is required');
@@ -721,6 +773,20 @@ const CmDashboard: React.FC = () => {
       }
       if (!new3PMData.region.trim()) {
         throw new Error('Region is required');
+      }
+      if (new3PMData.spokes.length === 0) {
+        throw new Error('At least one spoke is required');
+      }
+      
+      // Validate all spoke entries
+      for (let i = 0; i < new3PMData.spokes.length; i++) {
+        const spoke = new3PMData.spokes[i];
+        if (!spoke.name.trim()) {
+          throw new Error(`Spoke ${i + 1} Name is required`);
+        }
+        if (!spoke.email.trim()) {
+          throw new Error(`Spoke ${i + 1} Email is required`);
+        }
       }
 
       // Check if 3PM code already exists
@@ -1166,11 +1232,12 @@ const CmDashboard: React.FC = () => {
                   <th>3PM Code</th>
                   <th>3PM Description</th>
                   <th>Region</th>
-                  <th>SRM Lead</th>
-                  <th>Signoff Status</th>
-                  <th>Signoff By/Rejected By</th>
-                  <th>Signoff Date/ Rejected Date</th>
-                  <th style={{ width: '80px', padding: '8px 4px', textAlign: 'center' }}>Is Active</th>
+                                      <th style={{ display: 'none' }}>SRM Lead</th>
+                    <th>Signoff Status</th>
+                    <th style={{ display: 'none' }}>Signoff By/Rejected By</th>
+                    <th style={{ display: 'none' }}>Signoff Date/ Rejected Date</th>
+                    <th>Spoke</th>
+                    <th style={{ width: '80px', padding: '8px 4px', textAlign: 'center' }}>Is Active</th>
                   <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center' }}>Document</th>
                   <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px' }}>Add/View SKU</th>
                 </tr>
@@ -1178,7 +1245,7 @@ const CmDashboard: React.FC = () => {
               <tbody>
                 {currentData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', padding: '20px' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>
                       No data available
                     </td>
                   </tr>
@@ -1188,7 +1255,7 @@ const CmDashboard: React.FC = () => {
                       <td>{row.cm_code}</td>
                       <td>{row.cm_description}</td>
                       <td>{row.region || '-'}</td>
-                      <td>{row.srm_lead || '-'}</td>
+                      <td style={{ display: 'none' }}>{row.srm_lead || '-'}</td>
                       <td
                         className={
                           row.signoff_status === 'signed'
@@ -1209,15 +1276,18 @@ const CmDashboard: React.FC = () => {
                             : row.signoff_status === 'pending'
                             ? 'Pending'
                             : row.signoff_status || 'No Status';
-                        })()}
-                      </td>
-                      <td>
-                        {row.signoff_status === 'signed' ? row.signoff_by : '-'}
-                      </td>
-                      <td>
-                        {row.signoff_status === 'signed' ? row.signoff_date : '-'}
-                      </td>
-                      <td style={{ padding: '8px 4px', width: '80px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                  })()}
+                        </td>
+                        <td style={{ display: 'none' }}>
+                          {row.signoff_status === 'signed' ? row.signoff_by : '-'}
+                        </td>
+                        <td style={{ display: 'none' }}>
+                          {row.signoff_status === 'signed' ? row.signoff_date : '-'}
+                        </td>
+                        <td style={{ padding: '8px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
+                          {/* Spoke field - currently blank as requested */}
+                        </td>
+                        <td style={{ padding: '8px 4px', width: '80px', textAlign: 'center', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
                           <label style={{ 
                             display: 'flex', 
@@ -1577,8 +1647,8 @@ const CmDashboard: React.FC = () => {
         }}>
           <div className="add-3pm-modal" style={{
             background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-            width: '90%',
-            maxWidth: '500px',
+            width: '95%',
+            maxWidth: '700px',
             padding: '30px',
             borderRadius: '12px',
             boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
@@ -1592,7 +1662,7 @@ const CmDashboard: React.FC = () => {
                 position: 'absolute',
                 top: '15px',
                 right: '15px',
-                background: '#000',
+                background: 'linear-gradient(135deg, #30ea03 0%, #28c003 100%)',
                 border: 'none',
                 fontSize: '20px',
                 color: '#fff',
@@ -1607,22 +1677,30 @@ const CmDashboard: React.FC = () => {
                 zIndex: 1000
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#333';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #28c003 0%, #1f9a02 100%)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#000';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #30ea03 0%, #28c003 100%)';
               }}
             >
               <i className="ri-close-line"></i>
             </button>
             
             <h2 style={{ 
-              marginTop: 0, 
+              marginTop: '-30px', 
               marginBottom: '25px', 
-              color: '#333', 
-              paddingRight: '40px',
+              color: '#fff',
+              paddingLeft: '20px',
+              paddingRight: '60px',
               fontSize: '24px',
-              fontWeight: '600'
+              fontWeight: '600',
+              background: '#000',
+              padding: '15px 20px',
+              borderRadius: '8px 8px 0 0',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              textAlign: 'center',
+              marginLeft: '-30px',
+              marginRight: '-30px'
             }}>
               Add New 3PM
             </h2>
@@ -1643,35 +1721,71 @@ const CmDashboard: React.FC = () => {
             )}
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                color: '#333',
-                fontSize: '14px'
-              }}>
-                Period <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <select
-                value={new3PMData.period}
-                onChange={(e) => handleAdd3PMInputChange('period', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  backgroundColor: '#fff'
-                }}
-                disabled={add3PMLoading}
-              >
-                <option value="">Select Period</option>
-                {periods.map(period => (
-                  <option key={period.id} value={period.id.toString()}>
-                    {period.period}
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: '#333',
+                    fontSize: '14px'
+                  }}>
+                    Period <span style={{ color: '#dc3545' }}>*</span>
+                  </label>
+                  <select
+                    value={new3PMData.period}
+                    onChange={(e) => handleAdd3PMInputChange('period', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff'
+                    }}
+                    disabled={add3PMLoading}
+                  >
+                    <option value="">Select Period</option>
+                    {periods.map(period => (
+                      <option key={period.id} value={period.id.toString()}>
+                        {period.period}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: '#333',
+                    fontSize: '14px'
+                  }}>
+                    Region <span style={{ color: '#dc3545' }}>*</span>
+                  </label>
+                  <select
+                    value={new3PMData.region}
+                    onChange={(e) => handleAdd3PMInputChange('region', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff'
+                    }}
+                    disabled={add3PMLoading}
+                  >
+                    <option value="">Select Region</option>
+                    {regions.map(region => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div style={{ marginBottom: '20px' }}>
@@ -1682,23 +1796,195 @@ const CmDashboard: React.FC = () => {
                 color: '#333',
                 fontSize: '14px'
               }}>
-                SRRM <span style={{ color: '#dc3545' }}>*</span>
+                SRM <span style={{ color: '#dc3545' }}>*</span>
               </label>
-              <input
-                type="text"
-                value={new3PMData.srmm}
-                onChange={(e) => handleAdd3PMInputChange('srmm', e.target.value)}
-                placeholder="Enter SRRM"
-                style={{
-                  width: '100%',
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  value={new3PMData.srm_name}
+                  onChange={(e) => handleAdd3PMInputChange('srm_name', e.target.value)}
+                  placeholder="Enter name"
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: '#fff'
+                  }}
+                  disabled={add3PMLoading}
+                />
+                <input
+                  type="email"
+                  value={new3PMData.srm_email}
+                  onChange={(e) => handleAdd3PMInputChange('srm_email', e.target.value)}
+                  placeholder="Enter email"
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: '#fff'
+                  }}
+                  disabled={add3PMLoading}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <label style={{
+                  fontWeight: '600',
+                  color: '#333',
+                  fontSize: '14px'
+                }}>
+                  Spoke <span style={{ color: '#dc3545' }}>*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAddSpoke}
+                  style={{
+                    background: '#30ea03',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '30px',
+                    height: '30px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#28c003';
+                    e.currentTarget.style.transform = 'scale(1.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#30ea03';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  disabled={add3PMLoading}
+                >
+                  <i className="ri-add-line"></i>
+                </button>
+              </div>
+              
+              {new3PMData.spokes.map((spoke, index) => (
+                <div key={index} style={{ 
+                  marginBottom: '12px',
                   padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  backgroundColor: '#fff'
-                }}
-                disabled={add3PMLoading}
-              />
+                  border: '1px solid #e9ecef',
+                  borderRadius: '6px',
+                  backgroundColor: '#f8f9fa',
+                  position: 'relative'
+                }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="text"
+                        value={spoke.name}
+                        onChange={(e) => handleSpokeChange(index, 'name', e.target.value)}
+                        placeholder="Enter name"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          backgroundColor: '#fff'
+                        }}
+                        disabled={add3PMLoading}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="email"
+                        value={spoke.email}
+                        onChange={(e) => handleSpokeChange(index, 'email', e.target.value)}
+                        placeholder="Enter email"
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          backgroundColor: '#fff'
+                        }}
+                        disabled={add3PMLoading}
+                      />
+                    </div>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      minWidth: '120px',
+                      padding: '0 8px'
+                    }}>
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: '#333',
+                        margin: 0
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={spoke.signatory}
+                          onChange={(e) => handleSpokeChange(index, 'signatory', e.target.checked)}
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            cursor: 'pointer',
+                            accentColor: '#30ea03',
+                            margin: 0
+                          }}
+                          disabled={add3PMLoading}
+                        />
+                        Signatory
+                      </label>
+                    </div>
+                    {new3PMData.spokes.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSpoke(index)}
+                        style={{
+                          background: '#dc3545',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '30px',
+                          height: '30px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#c82333';
+                          e.currentTarget.style.transform = 'scale(1.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = '#dc3545';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                        disabled={add3PMLoading}
+                        title="Remove Spoke"
+                      >
+                        <i className="ri-close-line"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div style={{ marginBottom: '20px' }}>
@@ -1754,38 +2040,6 @@ const CmDashboard: React.FC = () => {
                 }}
                 disabled={add3PMLoading}
               />
-            </div>
-
-            <div style={{ marginBottom: '25px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                color: '#333',
-                fontSize: '14px'
-              }}>
-                Region <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <select
-                value={new3PMData.region}
-                onChange={(e) => handleAdd3PMInputChange('region', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  backgroundColor: '#fff'
-                }}
-                disabled={add3PMLoading}
-              >
-                <option value="">Select Region</option>
-                {regions.map(region => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div style={{
@@ -2069,6 +2323,129 @@ const CmDashboard: React.FC = () => {
               >
                 <i className={toggleConfirmData.currentStatus ? 'ri-close-line' : 'ri-check-line'}></i>
                 {toggleConfirmData.currentStatus ? 'Deactivate' : 'Activate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signatory Validation Modal */}
+      {showSignatoryModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '8px',
+            padding: '30px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowSignatoryModal(false)}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#000',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px',
+                transition: 'all 0.2s ease',
+                zIndex: 1000
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#333';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#000';
+              }}
+            >
+              <i className="ri-close-line"></i>
+            </button>
+            
+            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: '#ffc107',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                fontSize: '24px',
+                color: '#fff'
+              }}>
+                <i className="ri-alert-line"></i>
+              </div>
+              <h3 style={{ 
+                margin: '0 0 10px 0', 
+                color: '#333', 
+                fontSize: '20px',
+                fontWeight: '600'
+              }}>
+                Signatory Selection
+              </h3>
+              <p style={{ 
+                margin: 0, 
+                color: '#666', 
+                fontSize: '14px',
+                lineHeight: '1.5'
+              }}>
+                {signatoryModalMessage}
+              </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => setShowSignatoryModal(false)}
+                style={{
+                  background: '#30ea03',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#28c003';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#30ea03';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <i className="ri-check-line"></i>
+                OK
               </button>
             </div>
           </div>
