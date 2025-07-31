@@ -1,0 +1,1740 @@
+# Sustainability API Documentation
+
+**Version:** 1.0  
+**Date:** January 15, 2024  
+**Base URL:** http://localhost:3000  
+**Authentication:** Bearer Token
+
+---
+
+## Table of Contents
+
+1. [Authentication](#authentication)
+2. [SKU Management APIs](#sku-management-apis)
+3. [CM Management APIs](#cm-management-apis)
+4. [Component Management APIs](#component-management-apis)
+5. [Master Data Management APIs](#master-data-management-apis)
+6. [Signoff Management APIs](#signoff-management-apis)
+7. [Error Responses](#error-responses)
+8. [Usage Examples](#usage-examples)
+
+---
+
+## Authentication
+
+All API endpoints require Bearer Token authentication.
+
+**Header Required:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Error Response (401 Unauthorized):**
+```json
+{
+  "success": false,
+  "message": "Missing or invalid Authorization header. Use: Bearer <your-token>"
+}
+```
+
+---
+
+## SKU Management APIs
+
+### 1. Save SKU
+
+**Endpoint:** `POST /sku`  
+**Description:** Create a new SKU record  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "sku_code": "SKU123",
+  "description": "Sample SKU Description",
+  "cm_code": "CM001",
+  "is_active": true
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU saved successfully",
+  "data": {
+    "id": 1,
+    "sku_code": "SKU123",
+    "description": "Sample SKU Description",
+    "cm_code": "CM001",
+    "is_active": true,
+    "created_date": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:3000/sku" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{
+    "sku_code": "SKU123",
+    "description": "Sample SKU Description",
+    "cm_code": "CM001",
+    "is_active": true
+  }'
+```
+
+---
+
+### 2. Get All SKU Details
+
+**Endpoint:** `GET /sku-details`  
+**Description:** Retrieve all SKU details  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU details retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "sku_code": "SKU123",
+      "description": "Sample SKU Description",
+      "cm_code": "CM001",
+      "is_active": true,
+      "created_date": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/sku-details" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 3. Get SKU Details by CM Code
+
+**Endpoint:** `GET /sku-details/{cm_code}`  
+**Description:** Get SKU details filtered by CM code  
+**Authentication:** Required
+
+**Path Parameters:**
+- `cm_code` (string): CM code to filter by
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU details retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "sku_code": "SKU123",
+      "description": "Sample SKU Description",
+      "cm_code": "CM001",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/sku-details/CM001" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 4. Toggle SKU Active Status
+
+**Endpoint:** `PATCH /sku-details/{id}/is-active`  
+**Description:** Toggle the active status of an SKU  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): SKU ID
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "is_active": false
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU status updated successfully",
+  "data": {
+    "id": 1,
+    "is_active": false
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X PATCH "http://localhost:3000/sku-details/1/is-active" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{"is_active": false}'
+```
+
+---
+
+### 5. Get Active Years
+
+**Endpoint:** `GET /sku-details-active-years`  
+**Description:** Get list of active years  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Active years retrieved successfully",
+  "data": ["2023", "2024", "2025"]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/sku-details-active-years" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 6. Get All SKU Descriptions
+
+**Endpoint:** `GET /sku-descriptions`  
+**Description:** Get all SKU descriptions  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU descriptions retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "sku_code": "SKU123",
+      "description": "Sample SKU Description"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/sku-descriptions" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 7. Add SKU Detail
+
+**Endpoint:** `POST /sku-details/add`  
+**Description:** Add a new SKU detail  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "sku_code": "SKU124",
+  "description": "New SKU Description",
+  "cm_code": "CM002",
+  "is_active": true
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU detail added successfully",
+  "data": {
+    "id": 2,
+    "sku_code": "SKU124",
+    "description": "New SKU Description",
+    "cm_code": "CM002",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:3000/sku-details/add" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{
+    "sku_code": "SKU124",
+    "description": "New SKU Description",
+    "cm_code": "CM002",
+    "is_active": true
+  }'
+```
+
+---
+
+### 8. Update SKU Detail
+
+**Endpoint:** `PUT /sku-details/update/{sku_code}`  
+**Description:** Update an existing SKU detail  
+**Authentication:** Required
+
+**Path Parameters:**
+- `sku_code` (string): SKU code to update
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "description": "Updated SKU Description",
+  "cm_code": "CM003",
+  "is_active": true
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU detail updated successfully",
+  "data": {
+    "sku_code": "SKU124",
+    "description": "Updated SKU Description",
+    "cm_code": "CM003",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X PUT "http://localhost:3000/sku-details/update/SKU124" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{
+    "description": "Updated SKU Description",
+    "cm_code": "CM003",
+    "is_active": true
+  }'
+```
+
+---
+
+### 9. Get SKU by Reference
+
+**Endpoint:** `GET /skureference/{sku_reference}`  
+**Description:** Get SKU details by reference  
+**Authentication:** Required
+
+**Path Parameters:**
+- `sku_reference` (string): SKU reference to search
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU details retrieved successfully",
+  "data": {
+    "id": 1,
+    "sku_code": "SKU123",
+    "description": "Sample SKU Description",
+    "cm_code": "CM001",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/skureference/SKU123" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 10. Add SKU Audit Log
+
+**Endpoint:** `POST /sku-auditlog/add`  
+**Description:** Add audit log entry for SKU  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "sku_code": "SKU123",
+  "action": "UPDATE",
+  "old_values": {
+    "description": "Old Description"
+  },
+  "new_values": {
+    "description": "New Description"
+  },
+  "created_by": "user123"
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "SKU audit log added successfully",
+  "data": {
+    "id": 1,
+    "sku_code": "SKU123",
+    "action": "UPDATE",
+    "created_date": "2024-01-15T10:30:00Z",
+    "created_by": "user123"
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:3000/sku-auditlog/add" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{
+    "sku_code": "SKU123",
+    "action": "UPDATE",
+    "old_values": {"description": "Old Description"},
+    "new_values": {"description": "New Description"},
+    "created_by": "user123"
+  }'
+```
+
+---
+
+## CM Management APIs
+
+### 1. Get All CM Codes
+
+**Endpoint:** `GET /cm-codes`  
+**Description:** Get all CM codes  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "CM codes retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "cm_code": "CM001",
+      "description": "Component Master 001",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/cm-codes" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 2. Get CM Code by Code
+
+**Endpoint:** `GET /cm-codes/{cm_code}`  
+**Description:** Get specific CM code details  
+**Authentication:** Required
+
+**Path Parameters:**
+- `cm_code` (string): CM code to retrieve
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "CM code retrieved successfully",
+  "data": {
+    "id": 1,
+    "cm_code": "CM001",
+    "description": "Component Master 001",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/cm-codes/CM001" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 3. Toggle CM Code Active Status
+
+**Endpoint:** `PATCH /cm-codes/{id}/toggle-active`  
+**Description:** Toggle active status of CM code  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): CM code ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "CM code status toggled successfully",
+  "data": {
+    "id": 1,
+    "is_active": false
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X PATCH "http://localhost:3000/cm-codes/1/toggle-active" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+## Component Management APIs
+
+### 1. Add Component with File Upload
+
+**Endpoint:** `POST /add-component`  
+**Description:** Add new component with file uploads  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body (Multipart Form Data):**
+```
+skuId: SKU123
+componentName: Test Component
+Weight_files: [file1.xlsx, file2.xlsx]
+Packaging Type_files: [packaging1.xlsx]
+Material Type_files: [material1.xlsx]
+PackagingEvidence_files: [evidence1.pdf]
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component added successfully",
+  "data": {
+    "component_id": 1,
+    "sku_code": "SKU123",
+    "component_name": "Test Component",
+    "files_uploaded": {
+      "Weight": ["file1.xlsx", "file2.xlsx"],
+      "Packaging Type": ["packaging1.xlsx"],
+      "Material Type": ["material1.xlsx"],
+      "PackagingEvidence": ["evidence1.pdf"]
+    },
+    "created_date": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:3000/add-component" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -F "skuId=SKU123" \
+  -F "componentName=Test Component" \
+  -F "Weight_files=@weight-data.xlsx" \
+  -F "Packaging Type_files=@packaging-data.xlsx"
+```
+
+**JavaScript Example:**
+```javascript
+const formData = new FormData();
+formData.append('skuId', 'SKU123');
+formData.append('componentName', 'Test Component');
+formData.append('Weight_files', fileInput.files[0]);
+
+const response = await fetch('http://localhost:3000/add-component', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer Qw8!zR2@pL6'
+  },
+  body: formData
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+---
+
+### 2. Toggle Component Status
+
+**Endpoint:** `PATCH /component-status-change/{id}`  
+**Description:** Toggle component active status  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Component ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component status changed successfully",
+  "data": {
+    "id": 1,
+    "is_active": false
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X PATCH "http://localhost:3000/component-status-change/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 3. Get Component Details by SKU
+
+**Endpoint:** `GET /component-details-by-sku`  
+**Description:** Get component details filtered by SKU  
+**Authentication:** Required
+
+**Query Parameters:**
+- `sku_code` (string): SKU code to filter by
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component details retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "sku_code": "SKU123",
+      "component_name": "Test Component",
+      "is_active": true,
+      "created_date": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/component-details-by-sku?sku_code=SKU123" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 4. Get Component Details by Year and CM
+
+**Endpoint:** `GET /component-details-by-year-cm`  
+**Description:** Get component details filtered by year and CM  
+**Authentication:** Required
+
+**Query Parameters:**
+- `year` (string): Year to filter by
+- `cm_code` (string): CM code to filter by
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component details retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "sku_code": "SKU123",
+      "component_name": "Test Component",
+      "year": "2024",
+      "cm_code": "CM001"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/component-details-by-year-cm?year=2024&cm_code=CM001" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 5. Get Component Details by Period and CM
+
+**Endpoint:** `GET /component-details-by-period-cm`  
+**Description:** Get component details filtered by period and CM  
+**Authentication:** Required
+
+**Query Parameters:**
+- `period` (string): Period to filter by
+- `cm_code` (string): CM code to filter by
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component details retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "sku_code": "SKU123",
+      "component_name": "Test Component",
+      "period": "Q1-2024",
+      "cm_code": "CM001"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/component-details-by-period-cm?period=Q1-2024&cm_code=CM001" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 6. Get Component Code Data
+
+**Endpoint:** `GET /component-code-data`  
+**Description:** Get component code data  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component code data retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "component_code": "COMP001",
+      "description": "Component Code 001",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/component-code-data" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 7. Add Component Audit Log
+
+**Endpoint:** `POST /add-component-audit-log`  
+**Description:** Add audit log entry for component  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "component_id": 1,
+  "action": "CREATE",
+  "details": "Component created with files",
+  "created_by": "user123"
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component audit log added successfully",
+  "data": {
+    "id": 1,
+    "component_id": 1,
+    "action": "CREATE",
+    "created_date": "2024-01-15T10:30:00Z",
+    "created_by": "user123"
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:3000/add-component-audit-log" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{
+    "component_id": 1,
+    "action": "CREATE",
+    "details": "Component created with files",
+    "created_by": "user123"
+  }'
+```
+
+---
+
+### 8. Get Component Audit Log by Component ID
+
+**Endpoint:** `GET /component-audit-log/{componentId}`  
+**Description:** Get audit log entries for specific component  
+**Authentication:** Required
+
+**Path Parameters:**
+- `componentId` (integer): Component ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component audit log retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "component_id": 1,
+      "action": "CREATE",
+      "details": "Component created with files",
+      "created_date": "2024-01-15T10:30:00Z",
+      "created_by": "user123"
+    }
+  ],
+  "count": 1
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/component-audit-log/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+## Master Data Management APIs
+
+### Region Management
+
+#### 1. Get All Regions
+
+**Endpoint:** `GET /regions`  
+**Description:** Get all regions  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Regions retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "region_name": "North America",
+      "description": "North American region",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/regions" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+#### 2. Get Region by ID
+
+**Endpoint:** `GET /regions/{id}`  
+**Description:** Get specific region details  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Region ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Region retrieved successfully",
+  "data": {
+    "id": 1,
+    "region_name": "North America",
+    "description": "North American region",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/regions/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+#### 3. Create New Region
+
+**Endpoint:** `POST /regions`  
+**Description:** Create a new region  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "region_name": "Europe",
+  "description": "European region",
+  "is_active": true
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Region created successfully",
+  "data": {
+    "id": 2,
+    "region_name": "Europe",
+    "description": "European region",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:3000/regions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{
+    "region_name": "Europe",
+    "description": "European region",
+    "is_active": true
+  }'
+```
+
+---
+
+#### 4. Update Region
+
+**Endpoint:** `PUT /regions/{id}`  
+**Description:** Update an existing region  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Region ID
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Request Body:**
+```json
+{
+  "region_name": "Europe Updated",
+  "description": "Updated European region",
+  "is_active": true
+}
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Region updated successfully",
+  "data": {
+    "id": 2,
+    "region_name": "Europe Updated",
+    "description": "Updated European region",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X PUT "http://localhost:3000/regions/2" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer Qw8!zR2@pL6" \
+  -d '{
+    "region_name": "Europe Updated",
+    "description": "Updated European region",
+    "is_active": true
+  }'
+```
+
+---
+
+#### 5. Delete Region
+
+**Endpoint:** `DELETE /regions/{id}`  
+**Description:** Delete a region  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Region ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Region deleted successfully"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X DELETE "http://localhost:3000/regions/2" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### Material Type Master
+
+#### 1. Get All Material Types
+
+**Endpoint:** `GET /material-type-master`  
+**Description:** Get all material types  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Material types retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "material_type": "Plastic",
+      "description": "Plastic material type",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/material-type-master" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+#### 2. Get Material Type by ID
+
+**Endpoint:** `GET /material-type-master/{id}`  
+**Description:** Get specific material type details  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Material type ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Material type retrieved successfully",
+  "data": {
+    "id": 1,
+    "material_type": "Plastic",
+    "description": "Plastic material type",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/material-type-master/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### Master Component UMO
+
+#### 1. Get All Component UMOs
+
+**Endpoint:** `GET /master-component-umo`  
+**Description:** Get all component UMOs  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component UMOs retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "umo_code": "KG",
+      "description": "Kilogram",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/master-component-umo" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+#### 2. Get Component UMO by ID
+
+**Endpoint:** `GET /master-component-umo/{id}`  
+**Description:** Get specific component UMO details  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): UMO ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component UMO retrieved successfully",
+  "data": {
+    "id": 1,
+    "umo_code": "KG",
+    "description": "Kilogram",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/master-component-umo/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### Master Component Packaging Material
+
+#### 1. Get All Packaging Materials
+
+**Endpoint:** `GET /master-component-packaging-material`  
+**Description:** Get all packaging materials  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Packaging materials retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "packaging_material": "Cardboard",
+      "description": "Cardboard packaging material",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/master-component-packaging-material" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+#### 2. Get Packaging Material by ID
+
+**Endpoint:** `GET /master-component-packaging-material/{id}`  
+**Description:** Get specific packaging material details  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Packaging material ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Packaging material retrieved successfully",
+  "data": {
+    "id": 1,
+    "packaging_material": "Cardboard",
+    "description": "Cardboard packaging material",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/master-component-packaging-material/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### Master Component Packaging Level
+
+#### 1. Get All Packaging Levels
+
+**Endpoint:** `GET /master-component-packaging-level`  
+**Description:** Get all packaging levels  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Packaging levels retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "packaging_level": "Primary",
+      "description": "Primary packaging level",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/master-component-packaging-level" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+#### 2. Get Packaging Level by ID
+
+**Endpoint:** `GET /master-component-packaging-level/{id}`  
+**Description:** Get specific packaging level details  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Packaging level ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Packaging level retrieved successfully",
+  "data": {
+    "id": 1,
+    "packaging_level": "Primary",
+    "description": "Primary packaging level",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/master-component-packaging-level/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### Component Master Material Type
+
+#### 1. Get All Component Material Types
+
+**Endpoint:** `GET /component-master-material-type`  
+**Description:** Get all component material types  
+**Authentication:** Required
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component material types retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "material_type": "Plastic",
+      "description": "Plastic material type for components",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/component-master-material-type" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+#### 2. Get Component Material Type by ID
+
+**Endpoint:** `GET /component-master-material-type/{id}`  
+**Description:** Get specific component material type details  
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer): Component material type ID
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Component material type retrieved successfully",
+  "data": {
+    "id": 1,
+    "material_type": "Plastic",
+    "description": "Plastic material type for components",
+    "is_active": true
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/component-master-material-type/1" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+## Signoff Management APIs
+
+### 1. Get Signoff Details by CM
+
+**Endpoint:** `GET /signoff-details-by-cm`  
+**Description:** Get signoff details filtered by CM code  
+**Authentication:** Required
+
+**Query Parameters:**
+- `cm_code` (string): CM code to filter by
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Signoff details retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "cm_code": "CM001",
+      "signoff_date": "2024-01-15T10:30:00Z",
+      "signoff_by": "user123",
+      "status": "APPROVED"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/signoff-details-by-cm?cm_code=CM001" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+### 2. Get Signoff Details by CM and Period
+
+**Endpoint:** `GET /signoff-details-by-cm-period`  
+**Description:** Get signoff details filtered by CM code and period  
+**Authentication:** Required
+
+**Query Parameters:**
+- `cm_code` (string): CM code to filter by
+- `period` (string): Period to filter by
+
+**Request Headers:**
+```
+Authorization: Bearer Qw8!zR2@pL6
+```
+
+**Response (200 Success):**
+```json
+{
+  "success": true,
+  "message": "Signoff details retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "cm_code": "CM001",
+      "period": "Q1-2024",
+      "signoff_date": "2024-01-15T10:30:00Z",
+      "signoff_by": "user123",
+      "status": "APPROVED"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:3000/signoff-details-by-cm-period?cm_code=CM001&period=Q1-2024" \
+  -H "Authorization: Bearer Qw8!zR2@pL6"
+```
+
+---
+
+## Error Responses
+
+### 400 Bad Request
+```json
+{
+  "success": false,
+  "message": "Invalid request data",
+  "errors": [
+    {
+      "field": "sku_code",
+      "message": "SKU code is required"
+    }
+  ]
+}
+```
+
+### 401 Unauthorized
+```json
+{
+  "success": false,
+  "message": "Missing or invalid Authorization header. Use: Bearer <your-token>"
+}
+```
+
+### 404 Not Found
+```json
+{
+  "success": false,
+  "message": "Resource not found"
+}
+```
+
+### 500 Internal Server Error
+```json
+{
+  "success": false,
+  "message": "Internal server error",
+  "error": "Database connection failed"
+}
+```
+
+---
+
+## Usage Examples
+
+### JavaScript/Fetch Examples
+
+#### Get All SKU Details
+```javascript
+const response = await fetch('http://localhost:3000/sku-details', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer Qw8!zR2@pL6'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+#### Add Component with File Upload
+```javascript
+const formData = new FormData();
+formData.append('skuId', 'SKU123');
+formData.append('componentName', 'Test Component');
+formData.append('Weight_files', fileInput.files[0]);
+
+const response = await fetch('http://localhost:3000/add-component', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer Qw8!zR2@pL6'
+  },
+  body: formData
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+#### Update SKU Detail
+```javascript
+const response = await fetch('http://localhost:3000/sku-details/update/SKU123', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer Qw8!zR2@pL6'
+  },
+  body: JSON.stringify({
+    description: 'Updated SKU Description',
+    cm_code: 'CM003',
+    is_active: true
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+---
+
+## Environment Setup
+
+### Required Environment Variables
+```bash
+# API Security
+API_TOKEN=Qw8!zR2@pL6
+
+# Database Configuration
+DB_HOST=your-db-host
+DB_PORT=5432
+DB_NAME=your-db-name
+DB_USER=your-db-user
+DB_PASSWORD=your-db-password
+```
+
+### React App Environment Variables
+```bash
+REACT_APP_API_URL=http://localhost:3000
+REACT_APP_API_TOKEN=Qw8!zR2@pL6
+```
+
+---
+
+## API Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 404 | Not Found |
+| 500 | Internal Server Error |
+
+---
+
+## Security Notes
+
+- All endpoints require Bearer Token authentication
+- Token must be included in every request header
+- Invalid or missing tokens return 401 Unauthorized
+- Use HTTPS in production environments
+- Rotate tokens periodically for enhanced security
+
+---
+
+*This API documentation covers all endpoints in your Sustainability API. All endpoints are secured with Bearer Token authentication.* 
+
