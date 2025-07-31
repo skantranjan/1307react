@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import { Link, useNavigate } from 'react-router-dom';
 import Loader from '../components/Loader';
 import { useMsal } from '@azure/msal-react';
+import { apiGet, apiPost, apiPatch } from '../utils/api';
 
 // Interface for CM Code data structure with signoff status
 interface CmCode {
@@ -122,22 +123,7 @@ const CmDashboard: React.FC = () => {
         
         console.log('Making API call to:', 'http://localhost:3000/cm-codes');
         
-        const response = await fetch('http://localhost:3000/cm-codes', {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API Error Response:', errorText);
-          throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-        }
-        
-        const result: ApiResponse = await response.json();
+        const result: ApiResponse = await apiGet('/cm-codes');
         
         if (result.success) {
           console.log('CM Codes API Response:', result.data);
@@ -203,9 +189,7 @@ const CmDashboard: React.FC = () => {
   useEffect(() => {
     const fetchPeriods = async () => {
       try {
-        const response = await fetch('http://localhost:3000/sku-details-active-years');
-        if (!response.ok) throw new Error('Failed to fetch periods');
-        const result = await response.json();
+        const result = await apiGet('/sku-details-active-years');
         console.log('Periods API Response:', result);
         if (result.success && Array.isArray(result.years)) {
           // Handle both string and object formats
@@ -255,9 +239,7 @@ const CmDashboard: React.FC = () => {
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        const response = await fetch('http://localhost:3000/regions');
-        if (!response.ok) throw new Error('Failed to fetch regions');
-        const result = await response.json();
+        const result = await apiGet('/regions');
         console.log('Regions API Response:', result);
         
         if (result.success && Array.isArray(result.data)) {
@@ -437,17 +419,7 @@ const CmDashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:3000/cm-codes', {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result: ApiResponse = await response.json();
+        const result: ApiResponse = await apiGet('/cm-codes');
         
         if (result.success) {
           // Add is_active field if missing from API response
@@ -629,22 +601,12 @@ const CmDashboard: React.FC = () => {
       setSignoffLoading(true);
       setSignoffError(null);
       
-      let url = `http://localhost:3000/signoff-details-by-cm-period?cm_code=${encodeURIComponent(cmCode)}`;
+      let url = `/signoff-details-by-cm-period?cm_code=${encodeURIComponent(cmCode)}`;
       if (period) {
         url += `&period=${encodeURIComponent(period)}`;
       }
 
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: SignoffApiResponse = await response.json();
+      const result: SignoffApiResponse = await apiGet(url);
       console.log('Signoff Details API Response:', result);
       
       if (result.success) {
@@ -775,41 +737,67 @@ const CmDashboard: React.FC = () => {
         throw new Error('Region is required');
       }
       if (new3PMData.spokes.length === 0) {
-        throw new Error('At least one spoke is required');
+        throw new Error('At least one spocs is required');
       }
       
       // Validate all spoke entries
       for (let i = 0; i < new3PMData.spokes.length; i++) {
         const spoke = new3PMData.spokes[i];
         if (!spoke.name.trim()) {
-          throw new Error(`Spoke ${i + 1} Name is required`);
+          throw new Error(`Spocs ${i + 1} Name is required`);
         }
         if (!spoke.email.trim()) {
-          throw new Error(`Spoke ${i + 1} Email is required`);
+          throw new Error(`Spocs ${i + 1} Email is required`);
         }
       }
 
-      // Check if 3PM code already exists
+
+
+      // Make API call to add 3PM
+      console.log('Sending data to API:', {
+        period: new3PMData.period,
+        srm_name: new3PMData.srm_name,
+        srm_email: new3PMData.srm_email,
+        cm_code: new3PMData.cm_code,
+        cm_description: new3PMData.cm_description,
+        region: new3PMData.region,
+        spokes: new3PMData.spokes
+      });
+
+      // Debug: Log the request details
+      console.log('Making API call to /addpm with data:', {
+        period: new3PMData.period,
+        srm_name: new3PMData.srm_name,
+        srm_email: new3PMData.srm_email,
+        cm_code: new3PMData.cm_code,
+        cm_description: new3PMData.cm_description,
+        region: new3PMData.region,
+        spokes: new3PMData.spokes
+      });
+
+      // Check if 3PM code already exists before making the API call
       const existingCode = cmCodes.find(cm => cm.cm_code.toLowerCase() === new3PMData.cm_code.toLowerCase());
       if (existingCode) {
-        throw new Error('3PM Code already exists');
+        throw new Error('Conflict: 3PM Code already exists in the system');
       }
 
-      // TODO: Replace with actual API call
-      // const response = await fetch('http://localhost:3000/cm-codes', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json'
-      //   },
-      //   body: JSON.stringify(new3PMData)
-      // });
+      const response = await apiPost('/addpm', {
+        period: new3PMData.period,
+        srm_name: new3PMData.srm_name,
+        srm_email: new3PMData.srm_email,
+        cm_code: new3PMData.cm_code,
+        cm_description: new3PMData.cm_description,
+        region: new3PMData.region,
+        spokes: new3PMData.spokes
+      });
 
-      // if (!response.ok) {
-      //   throw new Error('Failed to add 3PM code');
-      // }
+      console.log('API Response:', response);
 
-      // For now, simulate success
-      console.log('Adding new 3PM:', new3PMData);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to add 3PM code');
+      }
+
+      console.log('Successfully added new 3PM:', response);
       
       // Close modal and refresh data
       handleCloseAdd3PMModal();
@@ -818,17 +806,7 @@ const CmDashboard: React.FC = () => {
       const fetchData = async () => {
         try {
           setLoading(true);
-          const response = await fetch('http://localhost:3000/cm-codes', {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
-          const result: ApiResponse = await response.json();
+          const result: ApiResponse = await apiGet('/cm-codes');
           
           if (result.success) {
             // Add is_active field if missing from API response
@@ -850,9 +828,63 @@ const CmDashboard: React.FC = () => {
 
       fetchData();
       
-    } catch (err) {
-      setAdd3PMError(err instanceof Error ? err.message : 'Failed to add 3PM code');
-      console.error('Error adding 3PM:', err);
+            } catch (err) {
+          console.error('Error adding 3PM:', err);
+          
+          // Provide more specific error messages based on the error
+          let errorMessage = 'Failed to add 3PM code';
+          if (err instanceof Error) {
+            errorMessage = err.message;
+            
+            // Handle specific HTTP status codes
+            if (errorMessage.includes('400')) {
+              errorMessage = 'Bad Request: Missing fields or invalid data. Please check all required fields and try again.';
+            } else if (errorMessage.includes('401')) {
+              errorMessage = 'Unauthorized: Invalid bearer token. Please check your authentication.';
+            } else if (errorMessage.includes('409')) {
+              errorMessage = 'Conflict: CM code already exists. Please use a different 3PM code.';
+            } else if (errorMessage.includes('422')) {
+              // Try to extract specific SPOC names from the error message
+              try {
+                // First try to parse JSON if it exists
+                const jsonMatch = errorMessage.match(/\{.*\}/);
+                if (jsonMatch) {
+                  const errorData = JSON.parse(jsonMatch[0]);
+                  if (errorData.existing_spokes && Array.isArray(errorData.existing_spokes)) {
+                    const existingSpocNames = errorData.existing_spokes.map((spoc: any) => `${spoc.name} (${spoc.email})`).join(', ');
+                    errorMessage = `Unprocessable Entity: The following SPOCs already exist: ${existingSpocNames}. Please remove these SPOCs before proceeding.`;
+                  } else if (errorData.message) {
+                    errorMessage = `Unprocessable Entity: ${errorData.message}`;
+                  } else {
+                    errorMessage = 'Unprocessable Entity: SPOCs already exist. Please check your spoke data and try again.';
+                  }
+                } else {
+                  // Try to extract SPOC names from plain text message
+                  // Look for pattern like "SPOCs already exist in the database: name (email)"
+                  const spocMatch = errorMessage.match(/SPOCs already exist in the database: (.+?)\./);
+                  if (spocMatch) {
+                    const spocNames = spocMatch[1];
+                    errorMessage = `Unprocessable Entity: The following SPOCs already exist: ${spocNames}. Please remove these SPOCs before proceeding.`;
+                  } else {
+                    errorMessage = 'Unprocessable Entity: SPOCs already exist. Please check your spoke data and try again.';
+                  }
+                }
+              } catch (parseError) {
+                // If we can't parse the JSON, try to extract from plain text
+                const spocMatch = errorMessage.match(/SPOCs already exist in the database: (.+?)\./);
+                if (spocMatch) {
+                  const spocNames = spocMatch[1];
+                  errorMessage = `Unprocessable Entity: The following SPOCs already exist: ${spocNames}. Please remove these SPOCs before proceeding.`;
+                } else {
+                  errorMessage = 'Unprocessable Entity: SPOCs already exist. Please check your spoke data and try again.';
+                }
+              }
+            } else if (errorMessage.includes('500')) {
+              errorMessage = 'Internal Server Error: Please try again later or contact support.';
+            }
+          }
+          
+          setAdd3PMError(errorMessage);
     } finally {
       setAdd3PMLoading(false);
     }
@@ -878,42 +910,11 @@ const CmDashboard: React.FC = () => {
       ));
 
       // Make API call to update the status using ID
-      const apiUrl = `http://localhost:3000/cm-codes/${id}/toggle-active`;
+      const apiUrl = `/cm-codes/${id}/toggle-active`;
       console.log('Calling API:', apiUrl);
       console.log('Request body:', { is_active: !currentStatus });
       
-      const response = await fetch(apiUrl, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ is_active: !currentStatus })
-      });
-
-      if (!response.ok) {
-        // Revert the change if API call fails
-        setCmCodes(prev => prev.map(cm => 
-          cm.cm_code === cmCode ? { ...cm, is_active: currentStatus } : cm
-        ));
-        
-        let errorMessage = 'Failed to update status';
-        if (response.status === 404) {
-          errorMessage = 'API endpoint not found. Please check if the backend server is running and the endpoint exists.';
-        } else if (response.status === 500) {
-          errorMessage = 'Server error occurred while updating status.';
-        } else {
-          try {
-            const errorData = await response.text();
-            errorMessage = `HTTP ${response.status}: ${errorData}`;
-          } catch {
-            errorMessage = `HTTP ${response.status}: Failed to update status`;
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
+      const result = await apiPatch(apiUrl, { is_active: !currentStatus });
       
       if (result.success) {
         // Update with the actual data from API response
@@ -956,17 +957,7 @@ const CmDashboard: React.FC = () => {
   // Refresh data table function
   const refreshDataTable = async () => {
     try {
-      const response = await fetch('http://localhost:3000/cm-codes', {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result: ApiResponse = await response.json();
+      const result: ApiResponse = await apiGet('/cm-codes');
       
       if (result.success) {
         // Add is_active field if missing from API response
@@ -1236,7 +1227,7 @@ const CmDashboard: React.FC = () => {
                     <th>Signoff Status</th>
                     <th style={{ display: 'none' }}>Signoff By/Rejected By</th>
                     <th style={{ display: 'none' }}>Signoff Date/ Rejected Date</th>
-                    <th>Spoke</th>
+                    <th>Spocs</th>
                     <th style={{ width: '80px', padding: '8px 4px', textAlign: 'center' }}>Is Active</th>
                   <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center' }}>Document</th>
                   <th style={{ width: '60px', padding: '8px 4px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '12px' }}>Add/View SKU</th>
@@ -1502,7 +1493,7 @@ const CmDashboard: React.FC = () => {
                     {/* Key Fields in Row */}
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: '1fr 1fr 1fr',
+                      gridTemplateColumns: '1fr 1fr 1fr 1fr',
                       gap: '8px'
                     }}>
                       {/* Signoff By */}
@@ -1526,6 +1517,36 @@ const CmDashboard: React.FC = () => {
                         </div>
                         <div style={{ fontSize: '12px', fontWeight: '500', color: '#333' }}>
                           {record.signoff_by || 'N/A'}
+                        </div>
+                      </div>
+
+                      {/* Signoff Date */}
+                      <div style={{
+                        background: '#ffffff',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        border: '1px solid #e9ecef',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <i className="ri-calendar-check-line" style={{ color: '#30ea03', fontSize: '12px' }}></i>
+                          <span style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', textTransform: 'uppercase' }}>
+                            Signoff Date
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: '500', color: '#333' }}>
+                          {record.signoff_date ? (
+                            new Date(record.signoff_date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          ) : 'N/A'}
                         </div>
                       </div>
 
@@ -1649,11 +1670,15 @@ const CmDashboard: React.FC = () => {
             background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
             width: '95%',
             maxWidth: '700px',
+            maxHeight: '90vh',
             padding: '30px',
             borderRadius: '12px',
             boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
             position: 'relative',
-            border: '2px solid #e9ecef'
+            border: '2px solid #e9ecef',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
             {/* Close Button */}
             <button
@@ -1687,8 +1712,8 @@ const CmDashboard: React.FC = () => {
             </button>
             
             <h2 style={{ 
-              marginTop: '-30px', 
-              marginBottom: '25px', 
+              marginTop: '-30px',
+              marginBottom: '25px',
               color: '#fff',
               paddingLeft: '20px',
               paddingRight: '60px',
@@ -1720,332 +1745,349 @@ const CmDashboard: React.FC = () => {
               </div>
             )}
 
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontWeight: '600',
-                    color: '#333',
-                    fontSize: '14px'
-                  }}>
-                    Period <span style={{ color: '#dc3545' }}>*</span>
-                  </label>
-                  <select
-                    value={new3PMData.period}
-                    onChange={(e) => handleAdd3PMInputChange('period', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: '#fff'
-                    }}
-                    disabled={add3PMLoading}
-                  >
-                    <option value="">Select Period</option>
-                    {periods.map(period => (
-                      <option key={period.id} value={period.id.toString()}>
-                        {period.period}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div style={{ flex: 1 }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontWeight: '600',
-                    color: '#333',
-                    fontSize: '14px'
-                  }}>
-                    Region <span style={{ color: '#dc3545' }}>*</span>
-                  </label>
-                  <select
-                    value={new3PMData.region}
-                    onChange={(e) => handleAdd3PMInputChange('region', e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: '#fff'
-                    }}
-                    disabled={add3PMLoading}
-                  >
-                    <option value="">Select Region</option>
-                    {regions.map(region => (
-                      <option key={region} value={region}>
-                        {region}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                color: '#333',
-                fontSize: '14px'
-              }}>
-                SRM <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input
-                  type="text"
-                  value={new3PMData.srm_name}
-                  onChange={(e) => handleAdd3PMInputChange('srm_name', e.target.value)}
-                  placeholder="Enter name"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    backgroundColor: '#fff'
-                  }}
-                  disabled={add3PMLoading}
-                />
-                <input
-                  type="email"
-                  value={new3PMData.srm_email}
-                  onChange={(e) => handleAdd3PMInputChange('srm_email', e.target.value)}
-                  placeholder="Enter email"
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    backgroundColor: '#fff'
-                  }}
-                  disabled={add3PMLoading}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            {/* Scrollable Content Area */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              paddingRight: '10px',
+              marginRight: '-10px'
+            }}>
+              {/* 1. 3PM Code */}
+              <div style={{ marginBottom: '20px' }}>
                 <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
                   fontWeight: '600',
                   color: '#333',
                   fontSize: '14px'
                 }}>
-                  Spoke <span style={{ color: '#dc3545' }}>*</span>
+                  3PM Code <span style={{ color: '#dc3545' }}>*</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={handleAddSpoke}
+                <input
+                  type="text"
+                  value={new3PMData.cm_code}
+                  onChange={(e) => handleAdd3PMInputChange('cm_code', e.target.value)}
+                  placeholder="Enter 3PM Code"
                   style={{
-                    background: '#30ea03',
-                    color: '#000',
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '30px',
-                    height: '30px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#28c003';
-                    e.currentTarget.style.transform = 'scale(1.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#30ea03';
-                    e.currentTarget.style.transform = 'scale(1)';
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: '#fff'
                   }}
                   disabled={add3PMLoading}
-                >
-                  <i className="ri-add-line"></i>
-                </button>
+                />
               </div>
-              
-              {new3PMData.spokes.map((spoke, index) => (
-                <div key={index} style={{ 
-                  marginBottom: '12px',
-                  padding: '12px',
-                  border: '1px solid #e9ecef',
-                  borderRadius: '6px',
-                  backgroundColor: '#f8f9fa',
-                  position: 'relative'
+
+              {/* 2. 3PM Description */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontWeight: '600',
+                  color: '#333',
+                  fontSize: '14px'
                 }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div style={{ flex: 1 }}>
-                      <input
-                        type="text"
-                        value={spoke.name}
-                        onChange={(e) => handleSpokeChange(index, 'name', e.target.value)}
-                        placeholder="Enter name"
-                        style={{
-                          width: '100%',
-                          padding: '12px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px',
-                          backgroundColor: '#fff'
-                        }}
-                        disabled={add3PMLoading}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <input
-                        type="email"
-                        value={spoke.email}
-                        onChange={(e) => handleSpokeChange(index, 'email', e.target.value)}
-                        placeholder="Enter email"
-                        style={{
-                          width: '100%',
-                          padding: '12px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px',
-                          backgroundColor: '#fff'
-                        }}
-                        disabled={add3PMLoading}
-                      />
-                    </div>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '8px',
-                      minWidth: '120px',
-                      padding: '0 8px'
+                  3PM Description <span style={{ color: '#dc3545' }}>*</span>
+                </label>
+                <textarea
+                  value={new3PMData.cm_description}
+                  onChange={(e) => handleAdd3PMInputChange('cm_description', e.target.value)}
+                  placeholder="Enter 3PM Description"
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: '#fff',
+                    resize: 'vertical'
+                  }}
+                  disabled={add3PMLoading}
+                />
+              </div>
+
+              {/* 3. Period and Region */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#333',
+                      fontSize: '14px'
                     }}>
-                      <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer',
+                      Period <span style={{ color: '#dc3545' }}>*</span>
+                    </label>
+                    <select
+                      value={new3PMData.period}
+                      onChange={(e) => handleAdd3PMInputChange('period', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
                         fontSize: '14px',
-                        fontWeight: '500',
-                        color: '#333',
-                        margin: 0
-                      }}>
+                        backgroundColor: '#fff'
+                      }}
+                      disabled={add3PMLoading}
+                    >
+                      <option value="">Select Period</option>
+                      {periods.map(period => (
+                        <option key={period.id} value={period.id.toString()}>
+                          {period.period}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div style={{ flex: 1 }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontWeight: '600',
+                      color: '#333',
+                      fontSize: '14px'
+                    }}>
+                      Region <span style={{ color: '#dc3545' }}>*</span>
+                    </label>
+                    <select
+                      value={new3PMData.region}
+                      onChange={(e) => handleAdd3PMInputChange('region', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: '#fff'
+                      }}
+                      disabled={add3PMLoading}
+                    >
+                      <option value="">Select Region</option>
+                      {regions.map(region => (
+                        <option key={region} value={region}>
+                          {region}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. SRM */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontWeight: '600',
+                  color: '#333',
+                  fontSize: '14px'
+                }}>
+                  SRM <span style={{ color: '#dc3545' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    value={new3PMData.srm_name}
+                    onChange={(e) => handleAdd3PMInputChange('srm_name', e.target.value)}
+                    placeholder="Enter name"
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff'
+                    }}
+                    disabled={add3PMLoading}
+                  />
+                  <input
+                    type="email"
+                    value={new3PMData.srm_email}
+                    onChange={(e) => handleAdd3PMInputChange('srm_email', e.target.value)}
+                    placeholder="Enter email"
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: '#fff'
+                    }}
+                    disabled={add3PMLoading}
+                  />
+                </div>
+              </div>
+
+              {/* 5. Spoke */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <label style={{
+                    fontWeight: '600',
+                    color: '#333',
+                    fontSize: '14px'
+                  }}>
+                    Spocs <span style={{ color: '#dc3545' }}>*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAddSpoke}
+                    style={{
+                      background: '#30ea03',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '30px',
+                      height: '30px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#28c003';
+                      e.currentTarget.style.transform = 'scale(1.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#30ea03';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    disabled={add3PMLoading}
+                  >
+                    <i className="ri-add-line"></i>
+                  </button>
+                </div>
+                
+                {new3PMData.spokes.map((spoke, index) => (
+                  <div key={index} style={{ 
+                    marginBottom: '12px',
+                    padding: '12px',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '6px',
+                    backgroundColor: '#f8f9fa',
+                    position: 'relative'
+                  }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
                         <input
-                          type="checkbox"
-                          checked={spoke.signatory}
-                          onChange={(e) => handleSpokeChange(index, 'signatory', e.target.checked)}
+                          type="text"
+                          value={spoke.name}
+                          onChange={(e) => handleSpokeChange(index, 'name', e.target.value)}
+                          placeholder="Enter name"
                           style={{
-                            width: '16px',
-                            height: '16px',
-                            cursor: 'pointer',
-                            accentColor: '#30ea03',
-                            margin: 0
+                            width: '100%',
+                            padding: '12px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            backgroundColor: '#fff'
                           }}
                           disabled={add3PMLoading}
                         />
-                        Signatory
-                      </label>
-                    </div>
-                    {new3PMData.spokes.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSpoke(index)}
-                        style={{
-                          background: '#dc3545',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: '30px',
-                          height: '30px',
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <input
+                          type="email"
+                          value={spoke.email}
+                          onChange={(e) => handleSpokeChange(index, 'email', e.target.value)}
+                          placeholder="Enter email"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            backgroundColor: '#fff'
+                          }}
+                          disabled={add3PMLoading}
+                        />
+                      </div>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px',
+                        minWidth: '120px',
+                        padding: '0 8px'
+                      }}>
+                        <label style={{
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
+                          gap: '6px',
                           cursor: 'pointer',
                           fontSize: '14px',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#c82333';
-                          e.currentTarget.style.transform = 'scale(1.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = '#dc3545';
-                          e.currentTarget.style.transform = 'scale(1)';
-                        }}
-                        disabled={add3PMLoading}
-                        title="Remove Spoke"
-                      >
-                        <i className="ri-close-line"></i>
-                      </button>
-                    )}
+                          fontWeight: '500',
+                          color: '#333',
+                          margin: 0
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={spoke.signatory}
+                            onChange={(e) => handleSpokeChange(index, 'signatory', e.target.checked)}
+                            style={{
+                              width: '16px',
+                              height: '16px',
+                              cursor: 'pointer',
+                              accentColor: '#30ea03',
+                              margin: 0
+                            }}
+                            disabled={add3PMLoading}
+                          />
+                          Signatory
+                        </label>
+                      </div>
+                      {new3PMData.spokes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSpoke(index)}
+                          style={{
+                            background: '#dc3545',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '30px',
+                            height: '30px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#c82333';
+                            e.currentTarget.style.transform = 'scale(1.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#dc3545';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }}
+                          disabled={add3PMLoading}
+                          title="Remove Spoke"
+                        >
+                          <i className="ri-close-line"></i>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                color: '#333',
-                fontSize: '14px'
-              }}>
-                3PM Code <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={new3PMData.cm_code}
-                onChange={(e) => handleAdd3PMInputChange('cm_code', e.target.value)}
-                placeholder="Enter 3PM Code"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  backgroundColor: '#fff'
-                }}
-                disabled={add3PMLoading}
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontWeight: '600',
-                color: '#333',
-                fontSize: '14px'
-              }}>
-                3PM Description <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <textarea
-                value={new3PMData.cm_description}
-                onChange={(e) => handleAdd3PMInputChange('cm_description', e.target.value)}
-                placeholder="Enter 3PM Description"
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  backgroundColor: '#fff',
-                  resize: 'vertical'
-                }}
-                disabled={add3PMLoading}
-              />
-            </div>
-
+            {/* Fixed Footer with Buttons */}
             <div style={{
               display: 'flex',
               gap: '12px',
-              justifyContent: 'flex-end'
+              justifyContent: 'flex-end',
+              marginTop: '20px',
+              paddingTop: '20px',
+              borderTop: '1px solid #e9ecef'
             }}>
               <button
                 onClick={handleCloseAdd3PMModal}

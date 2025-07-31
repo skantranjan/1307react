@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Loader from '../components/Loader';
+import { apiGet } from '../utils/api';
 
 // Interface for dashboard statistics
 interface DashboardStats {
@@ -46,11 +47,7 @@ const Dashboard: React.FC = () => {
         setError(null);
         
         // Fetch CM codes for statistics
-        const cmResponse = await fetch('http://localhost:3000/cm-codes', {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        const cmResponse = await apiGet('/cm-codes');
 
         if (!cmResponse.ok) {
           throw new Error(`HTTP error! status: ${cmResponse.status}`);

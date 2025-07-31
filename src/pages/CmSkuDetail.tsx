@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import MultiSelect from '../components/MultiSelect';
 import { Collapse } from 'react-collapse';
 import * as XLSX from 'xlsx';
+import { apiGet, apiPost, apiPut, apiPatch, apiPostFormData, apiPutFormData } from '../utils/api';
 
 /**
  * SKU Data Interface
@@ -15,18 +16,20 @@ import * as XLSX from 'xlsx';
 interface SkuData {
   id: number;                    // Unique identifier for the SKU
   sku_code: string;              // SKU code (e.g., "SKU123")
+  site?: string | null;          // Site information
   sku_description: string;        // Human-readable description of the SKU
   cm_code: string;               // Component Master code this SKU belongs to
-  cm_description: string;         // Component Master description
-  sku_reference: string;         // Reference SKU for external SKUs
+  cm_description?: string | null; // Component Master description
+  sku_reference?: string | null; // Reference SKU for external SKUs
   is_active: boolean;            // Whether the SKU is currently active
-  created_by: string;            // User who created the SKU
+  created_by?: string | null;    // User who created the SKU
   created_date: string;          // Date when SKU was created
   period: string;                // Period/Year for the SKU (e.g., "2024")
   purchased_quantity?: string | number | null;  // Optional purchased quantity
-  dual_source?: string;          // Optional dual source information
-  formulation_reference?: string; // Optional formulation reference
-  skutype?: string;              // SKU type: 'internal' or 'external'
+  sku_reference_check?: string | null; // SKU reference check field
+  formulation_reference?: string | null; // Optional formulation reference
+  dual_source_sku?: string | null; // Dual source SKU information
+  skutype?: string | null;       // SKU type: 'internal' or 'external'
 }
 
 /**
@@ -320,19 +323,7 @@ const CmSkuDetail: React.FC = () => {
       setError(null);             // Clear any previous errors
       
       // Make API call to fetch SKU details for the Component Master
-      const response = await fetch(`http://localhost:3000/sku-details/${cmCode}`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      // Handle HTTP errors
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      // Parse and validate API response
-      const result: ApiResponse = await response.json();
+      const result: ApiResponse = await apiGet(`/sku-details/${cmCode}`);
       if (result.success) {
         setSkuData(result.data);  // Update SKU data state with fetched data
       } else {
@@ -401,9 +392,7 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchYears = async () => {
       try {
-        const response = await fetch('http://localhost:3000/sku-details-active-years');
-        if (!response.ok) throw new Error('Failed to fetch years');
-        const result = await response.json();
+        const result = await apiGet('/sku-details-active-years');
         console.log('Years API response:', result); // Debug log
         
         // Handle different response formats
@@ -564,9 +553,7 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchDescriptions = async () => {
       try {
-        const response = await fetch('http://localhost:3000/sku-descriptions');
-        if (!response.ok) throw new Error('Failed to fetch descriptions');
-        const result = await response.json();
+        const result = await apiGet('/sku-descriptions');
         const descriptionsData = result.descriptions || [];
         // Convert all descriptions to strings to ensure compatibility
         const descriptionsAsStrings = descriptionsData.map((desc: any) => String(desc)).filter((desc: string) => desc && desc.trim() !== '');
@@ -611,9 +598,7 @@ const CmSkuDetail: React.FC = () => {
     const fetchMaterialTypes = async () => {
       try {
         console.log('Fetching material types from API...');
-        const response = await fetch('http://localhost:3000/component-master-material-type');
-        if (!response.ok) throw new Error('Failed to fetch material types');
-        const result = await response.json();
+        const result = await apiGet('/component-master-material-type');
         console.log('Material types API response:', result);
         if (result.success) {
           setMaterialTypes(result.data);
@@ -634,8 +619,7 @@ const CmSkuDetail: React.FC = () => {
     const fetchUnitOfMeasureOptions = async () => {
       try {
         console.log('Fetching UOM options from API...');
-        const response = await fetch('http://localhost:3000/master-component-umo');
-        const result = await response.json();
+        const result = await apiGet('/master-component-umo');
         console.log('UOM API response:', result);
         if (result.success && Array.isArray(result.data)) {
           setUnitOfMeasureOptions(result.data);
@@ -657,8 +641,7 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchPackagingLevelOptions = async () => {
       try {
-        const response = await fetch('http://localhost:3000/master-component-packaging-level');
-        const result = await response.json();
+        const result = await apiGet('/master-component-packaging-level');
         if (result.success && Array.isArray(result.data)) {
           setPackagingLevelOptions(result.data);
         } else {
@@ -677,7 +660,7 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchPackagingMaterialOptions = async () => {
       try {
-        const response = await fetch('http://localhost:3000/master-component-packaging-material');
+        const response = await apiGet('/master-component-packaging-material');
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
           setPackagingMaterialOptions(result.data);
@@ -697,17 +680,7 @@ const CmSkuDetail: React.FC = () => {
       // Optimistically update UI
       setSkuData(prev => prev.map(sku => sku.id === skuId ? { ...sku, is_active: !currentStatus } : sku));
       // Send PATCH request
-      const response = await fetch(`http://localhost:3000/sku-details/${skuId}/is-active`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ is_active: !currentStatus })
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const result = await response.json();
+      const result = await apiPatch(`/sku-details/${skuId}/is-active`, { is_active: !currentStatus });
       if (!result.success) {
         throw new Error('API returned unsuccessful response for status update');
       }
@@ -884,19 +857,12 @@ const CmSkuDetail: React.FC = () => {
     try {
       console.log('🔍 Fetching audit logs for component:', component.id);
       
-      const response = await fetch(`http://localhost:3000/component-audit-log/${component.id}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Audit logs received:', data);
-        const auditData = data.data || data.history || [];
-        setComponentHistory(auditData);
-        setTotalItems(auditData.length);
-      } else {
-        console.error('❌ Failed to fetch component audit logs');
-        setComponentHistory([]);
-        setTotalItems(0);
-      }
+                      const result = await apiGet(`/component-audit-log/${component.id}`);
+        
+        console.log('✅ Audit logs received:', result);
+        const auditData = result.data || result.history || [];
+      setComponentHistory(auditData);
+      setTotalItems(auditData.length);
     } catch (error) {
       console.error('❌ Error fetching component audit logs:', error);
       setComponentHistory([]);
@@ -996,10 +962,7 @@ const CmSkuDetail: React.FC = () => {
         });
       }
 
-      const response = await fetch(`http://localhost:3000/component-details/${editingComponent.id}`, {
-        method: 'PUT',
-        body: formData // Don't set Content-Type header for FormData
-      });
+      const response = await apiPutFormData(`/component-details/${editingComponent.id}`, formData);
 
       const result = await response.json();
       
@@ -1031,13 +994,7 @@ const CmSkuDetail: React.FC = () => {
             is_active: editingComponent.is_active || true
           };
         
-        await fetch('http://localhost:3000/add-component-audit-log', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(auditData)
-        });
+        await apiPost('/add-component-audit-log', auditData);
         console.log('Audit log created for component update');
       } catch (auditError) {
         console.error('Failed to log audit trail:', auditError);
@@ -1104,6 +1061,10 @@ const CmSkuDetail: React.FC = () => {
   const [addSkuSuccess, setAddSkuSuccess] = useState('');
   const [addSkuLoading, setAddSkuLoading] = useState(false);
   
+  // 3PM dropdown options state
+  const [threePmOptions, setThreePmOptions] = useState<Array<{cm_code: string, cm_description?: string}>>([]);
+  const [threePmLoading, setThreePmLoading] = useState(false);
+  
   // Search functionality for external SKU reference
   const [skuSearchResults, setSkuSearchResults] = useState<any[]>([]);
   const [showSkuSearchResults, setShowSkuSearchResults] = useState(false);
@@ -1114,6 +1075,41 @@ const CmSkuDetail: React.FC = () => {
   const [showComponentTable, setShowComponentTable] = useState(false);
   const [selectedComponentIds, setSelectedComponentIds] = useState<number[]>([]);
   const [componentsToSave, setComponentsToSave] = useState<any[]>([]); // Object to store data for API
+
+  /**
+   * fetchThreePmOptions Function
+   * Fetches unique and active cm_code values from the SKU details API
+   * Used to populate the 3PM dropdown in the Add SKU modal
+   */
+  const fetchThreePmOptions = async () => {
+    try {
+      setThreePmLoading(true);
+      const result = await apiGet('/sku-details');
+      
+      if (result.success && result.data) {
+        // Extract unique cm_code values from active SKUs
+        const uniqueCmCodes = new Map<string, {cm_code: string, cm_description?: string}>();
+        
+        result.data.forEach((sku: SkuData) => {
+          if (sku.is_active && sku.cm_code) {
+            uniqueCmCodes.set(sku.cm_code, {
+              cm_code: sku.cm_code,
+              cm_description: sku.cm_description || undefined
+            });
+          }
+        });
+        
+        // Convert Map to Array and sort by cm_code
+        const options = Array.from(uniqueCmCodes.values()).sort((a, b) => a.cm_code.localeCompare(b.cm_code));
+        setThreePmOptions(options);
+      }
+    } catch (error) {
+      console.error('Error fetching 3PM options:', error);
+      setThreePmOptions([]);
+    } finally {
+      setThreePmLoading(false);
+    }
+  };
 
   /**
    * searchSkuReference Function
@@ -1135,7 +1131,7 @@ const CmSkuDetail: React.FC = () => {
     setSkuSearchLoading(true);  // Show loading state
     try {
       // Make API call to search for SKU references
-      const response = await fetch(`http://localhost:3000/skureference/${encodeURIComponent(searchTerm)}`);
+      const response = await apiGet(`/skureference/${encodeURIComponent(searchTerm)}`);
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -1277,12 +1273,7 @@ const CmSkuDetail: React.FC = () => {
         skutype_param: addSkuType,
         skutype_in_body: addSkuType
       });
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const response = await apiPost(`/sku-details/add?skutype=${encodeURIComponent(addSkuType)}`, {
           sku_data: {
             sku_code: addSku,
             sku_description: addSkuDescription,
@@ -1325,8 +1316,7 @@ const CmSkuDetail: React.FC = () => {
             cm_code: component.cm_code,
             periods: component.periods
           }))
-        })
-      });
+        });
       const result = await response.json();
       if (!response.ok || !result.success) {
         // Server-side validation error
@@ -1345,20 +1335,14 @@ const CmSkuDetail: React.FC = () => {
       }
       setAddSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', server: '' });
       // Call audit log API
-      const auditResponse = await fetch('http://localhost:3000/sku-auditlog/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          sku_code: addSku,
-          sku_description: addSkuDescription,
-          cm_code: cmCode,
-          cm_description: cmDescription,
-          is_active: true, // assuming new SKUs are active
-          created_by: 'system', // or use actual user if available
-          created_date: new Date().toISOString()
-        })
+      const auditResponse = await apiPost('/sku-auditlog/add', {
+        sku_code: addSku,
+        sku_description: addSkuDescription,
+        cm_code: cmCode,
+        cm_description: cmDescription,
+        is_active: true, // assuming new SKUs are active
+        created_by: 'system', // or use actual user if available
+        created_date: new Date().toISOString()
       });
       if (!auditResponse.ok) {
         throw new Error('Failed to add audit log');
@@ -1386,7 +1370,7 @@ const CmSkuDetail: React.FC = () => {
         setLoading(true); // show full-page loader
         await fetchSkuDetails(); // refresh data
         // Refresh component details for all SKUs to ensure consistency
-        const updatedSkuData = await fetch('http://localhost:3000/sku-details').then(res => res.json());
+        const updatedSkuData = await apiGet('/sku-details').then(res => res.json());
         if (updatedSkuData.success && updatedSkuData.data) {
           for (const sku of updatedSkuData.data) {
             await fetchComponentDetails(sku.sku_code);
@@ -1436,7 +1420,7 @@ const CmSkuDetail: React.FC = () => {
 
     setEditSkuSearchLoading(true);
     try {
-      const response = await fetch(`http://localhost:3000/skureference/${encodeURIComponent(searchTerm)}`);
+      const response = await apiGet(`/skureference/${encodeURIComponent(searchTerm)}`);
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -1507,7 +1491,7 @@ const CmSkuDetail: React.FC = () => {
       skuReference: sku.sku_reference || '',
       skuNameSite: '', // Add if you have this field in SKU data
       qty: sku.purchased_quantity != null ? String(sku.purchased_quantity) : '',
-      dualSource: sku.dual_source || '',
+      dualSource: sku.dual_source_sku || '',
     });
     setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
     setEditSkuSuccess('');
@@ -1528,14 +1512,8 @@ const CmSkuDetail: React.FC = () => {
     // PUT to API
     setEditSkuLoading(true);
     try {
-      const response = await fetch(`http://localhost:3000/sku-details/update/${encodeURIComponent(editSkuData.sku)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          sku_description: editSkuData.skuDescription
-        })
+      const response = await apiPut(`/sku-details/update/${encodeURIComponent(editSkuData.sku)}`, {
+        sku_description: editSkuData.skuDescription
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
@@ -1546,20 +1524,14 @@ const CmSkuDetail: React.FC = () => {
       setEditSkuSuccess('SKU updated successfully!');
       setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
       // Call audit log API
-      const auditResponse = await fetch('http://localhost:3000/sku-auditlog/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          sku_code: editSkuData.sku,
-          sku_description: editSkuData.skuDescription,
-          cm_code: cmCode,
-          cm_description: cmDescription,
-          is_active: true, // or use actual value if available
-          created_by: 'system', // or use actual user if available
-          created_date: new Date().toISOString()
-        })
+      const auditResponse = await apiPost('/sku-auditlog/add', {
+        sku_code: editSkuData.sku,
+        sku_description: editSkuData.skuDescription,
+        cm_code: cmCode,
+        cm_description: cmDescription,
+        is_active: true, // or use actual value if available
+        created_by: 'system', // or use actual user if available
+        created_date: new Date().toISOString()
       });
       if (!auditResponse.ok) {
         throw new Error('Failed to add audit log');
@@ -1574,7 +1546,7 @@ const CmSkuDetail: React.FC = () => {
         setLoading(true); // show full-page loader
         await fetchSkuDetails(); // refresh data
         // Refresh component details for all SKUs to ensure consistency
-        const updatedSkuData = await fetch('http://localhost:3000/sku-details').then(res => res.json());
+        const updatedSkuData = await apiGet('/sku-details').then(res => res.json());
         if (updatedSkuData.success && updatedSkuData.data) {
           for (const sku of updatedSkuData.data) {
             await fetchComponentDetails(sku.sku_code);
@@ -1781,7 +1753,7 @@ const CmSkuDetail: React.FC = () => {
   const fetchComponentDetails = async (skuCode: string) => {
     setComponentDetailsLoading(prev => ({ ...prev, [skuCode]: true }));
     try {
-      const res = await fetch(`http://localhost:3000/component-details/${skuCode}`);
+      const res = await apiGet(`/component-details/${skuCode}`);
       const data = await res.json();
       
       // Map the component data to include display names
@@ -1973,10 +1945,7 @@ const CmSkuDetail: React.FC = () => {
       });
 
       // Make the API call
-      const response = await fetch('http://localhost:3000/add-component', {
-        method: 'POST',
-        body: formData  // ✅ Don't set Content-Type header - browser will set it automatically
-      });
+      const response = await apiPostFormData('/add-component', formData);
       
       const result = await response.json();
       console.log('Result:', result);
@@ -2009,13 +1978,7 @@ const CmSkuDetail: React.FC = () => {
             is_active: true
           };
         
-        await fetch('http://localhost:3000/add-component-audit-log', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(auditData)
-        });
+        await apiPost('/add-component-audit-log', auditData);
         console.log('Audit log created for component creation');
       } catch (auditError) {
         console.error('Failed to log audit trail:', auditError);
@@ -2087,10 +2050,10 @@ const CmSkuDetail: React.FC = () => {
           'SKU Code': sku.sku_code,
           'SKU Description': sku.sku_description,
           'Reference SKU': sku.sku_reference,
-          'Period': sku.period,
-          'Purchased Quantity': sku.purchased_quantity,
-          'Dual Source': sku.dual_source,
-          'Formulation Reference': sku.formulation_reference,
+                      'Period': sku.period,
+            'Purchased Quantity': sku.purchased_quantity,
+            'Dual Source': sku.dual_source_sku,
+            'Formulation Reference': sku.formulation_reference,
           'SKU Created By': sku.created_by,
           'SKU Created Date': sku.created_date,
           
@@ -2129,7 +2092,7 @@ const CmSkuDetail: React.FC = () => {
             'Reference SKU': sku.sku_reference,
             'Period': sku.period,
             'Purchased Quantity': sku.purchased_quantity,
-            'Dual Source': sku.dual_source,
+            'Dual Source': sku.dual_source_sku,
             'Formulation Reference': sku.formulation_reference,
             'SKU Created By': sku.created_by,
             'SKU Created Date': sku.created_date,
@@ -2268,7 +2231,7 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchMaterialTypeOptions = async () => {
       try {
-        const response = await fetch('http://localhost:3000/component-master-material-type');
+        const response = await apiGet('/component-master-material-type');
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
           setMaterialTypeOptions(result.data);
@@ -2311,7 +2274,7 @@ const CmSkuDetail: React.FC = () => {
 
     try {
       console.log('Fetching component data for code:', componentCode);
-      const response = await fetch(`http://localhost:3000/get-component-code-data?component_code=${encodeURIComponent(componentCode)}`);
+      const response = await apiGet(`/get-component-code-data?component_code=${encodeURIComponent(componentCode)}`);
       
       if (!response.ok) {
         console.log('No component found for code:', componentCode);
@@ -2471,7 +2434,7 @@ const CmSkuDetail: React.FC = () => {
   // Function to select a component from suggestions
   const selectComponentFromSuggestions = async (componentId: number) => {
     try {
-      const response = await fetch(`http://localhost:3000/get-component-code-data?component_code=${encodeURIComponent(addComponentData.componentCode)}`);
+      const response = await apiGet(`/get-component-code-data?component_code=${encodeURIComponent(addComponentData.componentCode)}`);
       
       if (response.ok) {
         const result = await response.json();
@@ -2598,16 +2561,11 @@ const CmSkuDetail: React.FC = () => {
     
     try {
       console.log('📡 Making status change API call...');
-      const response = await fetch(`http://localhost:3000/component-status-change/${componentId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: newStatus })
-      });
+      const result = await apiPatch(`/component-status-change/${componentId}`, { is_active: newStatus });
       
-      console.log('📡 Status change API response status:', response.status);
-      console.log('📡 Status change API response ok:', response.ok);
+      console.log('📡 Status change API result:', result);
       
-      if (response.ok) {
+      if (result.success) {
         console.log('✅ Status change successful, now logging audit trail...');
         
         // Log audit trail for component status change
@@ -2640,24 +2598,14 @@ const CmSkuDetail: React.FC = () => {
           
           console.log('📝 Audit data being sent:', auditData);
           
-          const auditResponse = await fetch('http://localhost:3000/add-component-audit-log', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(auditData)
-          });
+          const auditResult = await apiPost('/add-component-audit-log', auditData);
           
-          console.log('📝 Audit API response status:', auditResponse.status);
-          console.log('📝 Audit API response ok:', auditResponse.ok);
+          console.log('📝 Audit API result:', auditResult);
           
-          if (auditResponse.ok) {
-            const auditResult = await auditResponse.json();
+          if (auditResult.success) {
             console.log('✅ Audit log created successfully:', auditResult);
           } else {
-            const auditErrorText = await auditResponse.text();
-            console.error('❌ Audit API failed with status:', auditResponse.status);
-            console.error('❌ Audit API error response:', auditErrorText);
+            console.error('❌ Audit API failed:', auditResult);
           }
         } catch (auditError) {
           console.error('❌ Failed to log audit trail:', auditError);
@@ -2679,9 +2627,7 @@ const CmSkuDetail: React.FC = () => {
           console.log('✅ Local state updated successfully');
         }
       } else {
-        const errorText = await response.text();
-        console.error('❌ Status change API failed with status:', response.status);
-        console.error('❌ Status change API error response:', errorText);
+        console.error('❌ Status change API failed:', result);
         showError('Failed to update status');
       }
     } catch (err) {
@@ -2852,7 +2798,10 @@ const CmSkuDetail: React.FC = () => {
                     <button
                       className="btnCommon btnGreen filterButtons"
                       style={{ minWidth: 110, fontWeight: 600, marginRight: 0, marginTop: 0, fontSize: '13px', padding: '8px 12px' }}
-                      onClick={() => setShowSkuModal(true)}
+                      onClick={() => {
+                        setShowSkuModal(true);
+                        fetchThreePmOptions(); // Fetch 3PM options when modal opens
+                      }}
                     >
                       <span>Add SKU</span> <i className="ri-add-circle-line"></i>
                     </button>
@@ -4411,7 +4360,7 @@ const CmSkuDetail: React.FC = () => {
                           disabled={addSkuLoading}
                           style={{ marginRight: '8px' }}
                         />
-                        <span style={{ fontSize: '14px', fontWeight: '500' }}>Do you have the reference SKU?</span>
+                        <span style={{ fontSize: '14px', fontWeight: '500' }}>Do you want to add the reference SKU?</span>
                       </label>
                     </div>
                     
@@ -4505,9 +4454,9 @@ const CmSkuDetail: React.FC = () => {
                         {/* ===== EXTERNAL SKU SECTIONS ===== */}
                         {addSkuType === 'external' && (
                           <>
-                            {/* Section 1: Contractor Dropdown */}
+                            {/* Section 1: 3PM Dropdown */}
                             <div className="col-md-6">
-                              <label>Contractor</label>
+                              <label>3PM</label>
                               <div style={{ position: 'relative' }}>
                                 <select
                                   className="form-control"
@@ -4519,10 +4468,16 @@ const CmSkuDetail: React.FC = () => {
                                     paddingRight: '30px'
                                   }}
                                 >
-                                  <option value="">Select Contractor</option>
-                                  <option value="Contractor A">Contractor A</option>
-                                  <option value="Contractor B">Contractor B</option>
-                                  <option value="Contractor C">Contractor C</option>
+                                  <option value="">Select 3PM</option>
+                                  {threePmLoading ? (
+                                    <option value="" disabled>Loading 3PM options...</option>
+                                  ) : (
+                                    threePmOptions.map((option, index) => (
+                                      <option key={index} value={option.cm_code}>
+                                        {option.cm_code}{option.cm_description ? ` - ${option.cm_description}` : ''}
+                                      </option>
+                                    ))
+                                  )}
                                 </select>
                                 <i 
                                   className="ri-arrow-down-s-line" 

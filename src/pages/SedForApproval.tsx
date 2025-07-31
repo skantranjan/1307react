@@ -5,6 +5,7 @@ import MultiSelect from '../components/MultiSelect';
 import ConfirmModal from '../components/ConfirmModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { apiGet } from '../utils/api';
 
 const componentFields = [
   'component_code',
@@ -122,7 +123,7 @@ const SedForApproval: React.FC = () => {
   const fetchMaterialTypes = async () => {
     try {
       console.log('Fetching material types from API...');
-      const response = await fetch('http://localhost:3000/material-type-master');
+      const response = await apiGet('/material-type-master');
       
       if (!response.ok) {
         throw new Error('Failed to fetch material types');
@@ -147,13 +148,13 @@ const SedForApproval: React.FC = () => {
         console.log('Fetching years for SendForApproval...');
         
         // Try the primary endpoint first
-        let response = await fetch('http://localhost:3000/sku-details-active-years');
+        let response = await apiGet('/sku-details-active-years');
         console.log('Primary Years API response status:', response.status);
         
         if (!response.ok) {
           // Try alternative endpoint
           console.log('Primary endpoint failed, trying alternative...');
-          response = await fetch('http://localhost:3000/component-years');
+          response = await apiGet('/component-years');
           console.log('Alternative Years API response status:', response.status);
           
           if (!response.ok) {
@@ -310,7 +311,7 @@ const SedForApproval: React.FC = () => {
         
         // First try the new API endpoint
         try {
-          response = await fetch(`http://localhost:3000/sku-components-summary?period=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
+          response = await apiGet(`/sku-components-summary?period=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
           if (response.ok) {
             data = await response.json();
             console.log('Using new API endpoint - sku-components-summary');
@@ -322,7 +323,7 @@ const SedForApproval: React.FC = () => {
         // Fallback to existing endpoints if new API fails
         if (!response || !response.ok) {
           try {
-            response = await fetch(`http://localhost:3000/component-details-by-year-cm?year=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
+            response = await apiGet(`/component-details-by-year-cm?year=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
             if (response.ok) {
               data = await response.json();
               console.log('Using fallback API endpoint - component-details-by-year-cm');
@@ -335,7 +336,7 @@ const SedForApproval: React.FC = () => {
         // Second fallback
         if (!response || !response.ok) {
           try {
-            response = await fetch(`http://localhost:3000/component-details?period=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
+            response = await apiGet(`/component-details?period=${encodeURIComponent(selectedYear)}&cm_code=${encodeURIComponent(cmCode)}`);
             if (response.ok) {
               data = await response.json();
               console.log('Using second fallback API endpoint - component-details');
