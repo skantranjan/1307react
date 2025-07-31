@@ -1,0 +1,692 @@
+{
+  "info": {
+    "name": "Sustainability API",
+    "description": "Complete API collection for Sustainability API with Bearer Token authentication",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "Qw8!zR2@pL6",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "Qw8!zR2@pL6",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "SKU Management",
+      "item": [
+        {
+          "name": "Save SKU",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku_code\": \"SKU123\",\n  \"description\": \"Sample SKU Description\",\n  \"cm_code\": \"CM001\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sku",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku"]
+            }
+          }
+        },
+        {
+          "name": "Get All SKU Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sku-details",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-details"]
+            }
+          }
+        },
+        {
+          "name": "Get SKU Details by CM Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sku-details/CM001",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-details", "CM001"]
+            }
+          }
+        },
+        {
+          "name": "Toggle SKU Active Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sku-details/1/is-active",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-details", "1", "is-active"]
+            }
+          }
+        },
+        {
+          "name": "Get Active Years",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sku-details-active-years",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-details-active-years"]
+            }
+          }
+        },
+        {
+          "name": "Get All SKU Descriptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sku-descriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-descriptions"]
+            }
+          }
+        },
+        {
+          "name": "Add SKU Detail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku_code\": \"SKU124\",\n  \"description\": \"New SKU Description\",\n  \"cm_code\": \"CM002\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sku-details/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-details", "add"]
+            }
+          }
+        },
+        {
+          "name": "Update SKU Detail",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated SKU Description\",\n  \"cm_code\": \"CM003\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sku-details/update/SKU124",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-details", "update", "SKU124"]
+            }
+          }
+        },
+        {
+          "name": "Get SKU by Reference",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/skureference/SKU123",
+              "host": ["{{baseUrl}}"],
+              "path": ["skureference", "SKU123"]
+            }
+          }
+        },
+        {
+          "name": "Add SKU Audit Log",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku_code\": \"SKU123\",\n  \"action\": \"UPDATE\",\n  \"old_values\": {\n    \"description\": \"Old Description\"\n  },\n  \"new_values\": {\n    \"description\": \"New Description\"\n  },\n  \"created_by\": \"user123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sku-auditlog/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["sku-auditlog", "add"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "CM Management",
+      "item": [
+        {
+          "name": "Get All CM Codes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cm-codes",
+              "host": ["{{baseUrl}}"],
+              "path": ["cm-codes"]
+            }
+          }
+        },
+        {
+          "name": "Get CM Code by Code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cm-codes/CM001",
+              "host": ["{{baseUrl}}"],
+              "path": ["cm-codes", "CM001"]
+            }
+          }
+        },
+        {
+          "name": "Toggle CM Code Active Status",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cm-codes/1/toggle-active",
+              "host": ["{{baseUrl}}"],
+              "path": ["cm-codes", "1", "toggle-active"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Component Management",
+      "item": [
+        {
+          "name": "Add Component with File Upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "skuId",
+                  "value": "SKU123",
+                  "type": "text"
+                },
+                {
+                  "key": "componentName",
+                  "value": "Test Component",
+                  "type": "text"
+                },
+                {
+                  "key": "Weight_files",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "Packaging Type_files",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "Material Type_files",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "PackagingEvidence_files",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/add-component",
+              "host": ["{{baseUrl}}"],
+              "path": ["add-component"]
+            }
+          }
+        },
+        {
+          "name": "Toggle Component Status",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/component-status-change/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["component-status-change", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Component Details by SKU",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/component-details-by-sku?sku_code=SKU123",
+              "host": ["{{baseUrl}}"],
+              "path": ["component-details-by-sku"],
+              "query": [
+                {
+                  "key": "sku_code",
+                  "value": "SKU123"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Component Details by Year and CM",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/component-details-by-year-cm?year=2024&cm_code=CM001",
+              "host": ["{{baseUrl}}"],
+              "path": ["component-details-by-year-cm"],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2024"
+                },
+                {
+                  "key": "cm_code",
+                  "value": "CM001"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Component Details by Period and CM",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/component-details-by-period-cm?period=Q1-2024&cm_code=CM001",
+              "host": ["{{baseUrl}}"],
+              "path": ["component-details-by-period-cm"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "Q1-2024"
+                },
+                {
+                  "key": "cm_code",
+                  "value": "CM001"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Component Code Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/component-code-data",
+              "host": ["{{baseUrl}}"],
+              "path": ["component-code-data"]
+            }
+          }
+        },
+        {
+          "name": "Add Component Audit Log",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"component_id\": 1,\n  \"action\": \"CREATE\",\n  \"details\": \"Component created with files\",\n  \"created_by\": \"user123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/add-component-audit-log",
+              "host": ["{{baseUrl}}"],
+              "path": ["add-component-audit-log"]
+            }
+          }
+        },
+        {
+          "name": "Get Component Audit Log by Component ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/component-audit-log/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["component-audit-log", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Master Data Management",
+      "item": [
+        {
+          "name": "Regions",
+          "item": [
+            {
+              "name": "Get All Regions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/regions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["regions"]
+                }
+              }
+            },
+            {
+              "name": "Get Region by ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/regions/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["regions", "1"]
+                }
+              }
+            },
+            {
+              "name": "Create New Region",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"region_name\": \"Europe\",\n  \"description\": \"European region\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/regions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["regions"]
+                }
+              }
+            },
+            {
+              "name": "Update Region",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"region_name\": \"Europe Updated\",\n  \"description\": \"Updated European region\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/regions/2",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["regions", "2"]
+                }
+              }
+            },
+            {
+              "name": "Delete Region",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/regions/2",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["regions", "2"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Material Types",
+          "item": [
+            {
+              "name": "Get All Material Types",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/material-type-master",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["material-type-master"]
+                }
+              }
+            },
+            {
+              "name": "Get Material Type by ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/material-type-master/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["material-type-master", "1"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Component UMOs",
+          "item": [
+            {
+              "name": "Get All Component UMOs",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/master-component-umo",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["master-component-umo"]
+                }
+              }
+            },
+            {
+              "name": "Get Component UMO by ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/master-component-umo/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["master-component-umo", "1"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Packaging Materials",
+          "item": [
+            {
+              "name": "Get All Packaging Materials",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/master-component-packaging-material",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["master-component-packaging-material"]
+                }
+              }
+            },
+            {
+              "name": "Get Packaging Material by ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/master-component-packaging-material/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["master-component-packaging-material", "1"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Packaging Levels",
+          "item": [
+            {
+              "name": "Get All Packaging Levels",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/master-component-packaging-level",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["master-component-packaging-level"]
+                }
+              }
+            },
+            {
+              "name": "Get Packaging Level by ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/master-component-packaging-level/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["master-component-packaging-level", "1"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Component Material Types",
+          "item": [
+            {
+              "name": "Get All Component Material Types",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/component-master-material-type",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["component-master-material-type"]
+                }
+              }
+            },
+            {
+              "name": "Get Component Material Type by ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/component-master-material-type/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["component-master-material-type", "1"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Signoff Management",
+      "item": [
+        {
+          "name": "Get Signoff Details by CM",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/signoff-details-by-cm?cm_code=CM001",
+              "host": ["{{baseUrl}}"],
+              "path": ["signoff-details-by-cm"],
+              "query": [
+                {
+                  "key": "cm_code",
+                  "value": "CM001"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Signoff Details by CM and Period",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/signoff-details-by-cm-period?cm_code=CM001&period=Q1-2024",
+              "host": ["{{baseUrl}}"],
+              "path": ["signoff-details-by-cm-period"],
+              "query": [
+                {
+                  "key": "cm_code",
+                  "value": "CM001"
+                },
+                {
+                  "key": "period",
+                  "value": "Q1-2024"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+} 
