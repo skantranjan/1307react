@@ -21,7 +21,8 @@ interface CmCode {
   signoff_status?: string | null;
   document_url?: string | null;
   periods?: string | null; // Comma-separated period IDs like "2,3"
-  region?: string | null;
+  region_id?: number | null;
+  region_name?: string | null;
   srm_lead?: string | null;
   is_active?: boolean;
 }
@@ -496,7 +497,7 @@ const CmDashboard: React.FC = () => {
     // Filter by Region
     if (appliedFilters.region.length > 0) {
       filtered = filtered.filter(item => 
-        item.region && appliedFilters.region.includes(item.region)
+        item.region_name && appliedFilters.region.includes(item.region_name)
       );
       console.log(`Filtered by Regions: ${appliedFilters.region.join(', ')}. Results: ${filtered.length}`);
     }
@@ -546,7 +547,7 @@ const CmDashboard: React.FC = () => {
     const exportData = currentData.map(row => ({
       '3PM Code': row.cm_code,
       '3PM Description': row.cm_description,
-      'Region': row.region || '',
+      'Region': row.region_name || '',
       'SRM Lead': row.srm_lead || '',
       'Signoff Status': row.signoff_status === 'signed'
         ? 'Signed'
@@ -711,84 +712,115 @@ const CmDashboard: React.FC = () => {
     }
   };
 
-  // Handle Add 3PM form submission
-  const handleAdd3PMSave = async () => {
-    try {
-      setAdd3PMLoading(true);
-      setAdd3PMError(null);
+  // Handle Add 3PM form submission - Show confirmation modal first
+  const handleAdd3PMSave = () => {
+    // Collect all validation errors in sequence
+    const errors: string[] = [];
 
-      // Validate required fields
-      if (!new3PMData.period.trim()) {
-        throw new Error('Period is required');
+    // Validate in the order of fields in the form
+    if (!new3PMData.cm_code.trim()) {
+      errors.push('3PM Code is required');
+    }
+    if (!new3PMData.cm_description.trim()) {
+      errors.push('3PM Description is required');
+    }
+    if (!new3PMData.period.trim()) {
+      errors.push('Period is required');
+    }
+    if (!new3PMData.region.trim()) {
+      errors.push('Region is required');
+    }
+    if (!new3PMData.srm_name.trim()) {
+      errors.push('SRM Name is required');
+    }
+    if (!new3PMData.srm_email.trim()) {
+      errors.push('SRM Email is required');
+    } else {
+      // Email validation regex
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(new3PMData.srm_email.trim())) {
+        errors.push('SRM Email must be a valid email address');
       }
-      if (!new3PMData.srm_name.trim()) {
-        throw new Error('SRM Name is required');
-      }
-      if (!new3PMData.srm_email.trim()) {
-        throw new Error('SRM Email is required');
-      }
-      if (!new3PMData.cm_code.trim()) {
-        throw new Error('3PM Code is required');
-      }
-      if (!new3PMData.cm_description.trim()) {
-        throw new Error('3PM Description is required');
-      }
-      if (!new3PMData.region.trim()) {
-        throw new Error('Region is required');
-      }
-      if (new3PMData.spokes.length === 0) {
-        throw new Error('At least one spocs is required');
-      }
-      
+    }
+    if (new3PMData.spokes.length === 0) {
+      errors.push('At least one spocs is required');
+    } else {
       // Validate all spoke entries
       for (let i = 0; i < new3PMData.spokes.length; i++) {
         const spoke = new3PMData.spokes[i];
         if (!spoke.name.trim()) {
-          throw new Error(`Spocs ${i + 1} Name is required`);
+          errors.push(`Spocs ${i + 1} Name is required`);
         }
         if (!spoke.email.trim()) {
-          throw new Error(`Spocs ${i + 1} Email is required`);
+          errors.push(`Spocs ${i + 1} Email is required`);
+        } else {
+          // Email validation regex
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(spoke.email.trim())) {
+            errors.push(`Spocs ${i + 1} Email must be a valid email address`);
+          }
         }
       }
+    }
+
+    // If there are validation errors, display them in sequence
+    if (errors.length > 0) {
+      setAdd3PMError(errors.join('\n'));
+      return;
+    }
+
+    // Clear any previous errors
+    setAdd3PMError(null);
+
+    // Show confirmation modal
+    setAdd3PMConfirmData({ ...new3PMData });
+    setShowAdd3PMConfirmModal(true);
+  };
+
+  // Handle Add 3PM form submission after confirmation
+  const handleAdd3PMConfirmSave = async () => {
+    try {
+      setAdd3PMLoading(true);
+      setAdd3PMError(null);
 
 
 
       // Make API call to add 3PM
       console.log('Sending data to API:', {
-        period: new3PMData.period,
-        srm_name: new3PMData.srm_name,
-        srm_email: new3PMData.srm_email,
-        cm_code: new3PMData.cm_code,
-        cm_description: new3PMData.cm_description,
-        region: new3PMData.region,
-        spokes: new3PMData.spokes
+        period: add3PMConfirmData!.period,
+        srm_name: add3PMConfirmData!.srm_name,
+        srm_email: add3PMConfirmData!.srm_email,
+        cm_code: add3PMConfirmData!.cm_code,
+        cm_description: add3PMConfirmData!.cm_description,
+        region: add3PMConfirmData!.region,
+        spokes: add3PMConfirmData!.spokes
       });
 
       // Debug: Log the request details
       console.log('Making API call to /addpm with data:', {
-        period: new3PMData.period,
-        srm_name: new3PMData.srm_name,
-        srm_email: new3PMData.srm_email,
-        cm_code: new3PMData.cm_code,
-        cm_description: new3PMData.cm_description,
-        region: new3PMData.region,
-        spokes: new3PMData.spokes
+        period: add3PMConfirmData!.period,
+        srm_name: add3PMConfirmData!.srm_name,
+        srm_email: add3PMConfirmData!.srm_email,
+        cm_code: add3PMConfirmData!.cm_code,
+        cm_description: add3PMConfirmData!.cm_description,
+        region: add3PMConfirmData!.region,
+        spokes: add3PMConfirmData!.spokes
       });
 
       // Check if 3PM code already exists before making the API call
-      const existingCode = cmCodes.find(cm => cm.cm_code.toLowerCase() === new3PMData.cm_code.toLowerCase());
+      const existingCode = cmCodes.find(cm => cm.cm_code.toLowerCase() === add3PMConfirmData!.cm_code.toLowerCase());
       if (existingCode) {
         throw new Error('Conflict: 3PM Code already exists in the system');
       }
 
       const response = await apiPost('/addpm', {
-        period: new3PMData.period,
-        srm_name: new3PMData.srm_name,
-        srm_email: new3PMData.srm_email,
-        cm_code: new3PMData.cm_code,
-        cm_description: new3PMData.cm_description,
-        region: new3PMData.region,
-        spokes: new3PMData.spokes
+        period: add3PMConfirmData!.period,
+        srm_name: add3PMConfirmData!.srm_name,
+        srm_email: add3PMConfirmData!.srm_email,
+        cm_code: add3PMConfirmData!.cm_code,
+        cm_description: add3PMConfirmData!.cm_description,
+        region: add3PMConfirmData!.region,
+        spokes: add3PMConfirmData!.spokes
       });
 
       console.log('API Response:', response);
@@ -799,7 +831,9 @@ const CmDashboard: React.FC = () => {
 
       console.log('Successfully added new 3PM:', response);
       
-      // Close modal and refresh data
+      // Close confirmation modal and main modal, then refresh data
+      setShowAdd3PMConfirmModal(false);
+      setAdd3PMConfirmData(null);
       handleCloseAdd3PMModal();
       
       // Refresh the CM codes list
@@ -828,7 +862,7 @@ const CmDashboard: React.FC = () => {
 
       fetchData();
       
-            } catch (err) {
+    } catch (err) {
           console.error('Error adding 3PM:', err);
           
           // Provide more specific error messages based on the error
@@ -864,9 +898,9 @@ const CmDashboard: React.FC = () => {
                   const spocMatch = errorMessage.match(/SPOCs already exist in the database: (.+?)\./);
                   if (spocMatch) {
                     const spocNames = spocMatch[1];
-                    errorMessage = `Unprocessable Entity: The following SPOCs already exist: ${spocNames}. Please remove these SPOCs before proceeding.`;
+                    errorMessage = ` The following SPOCs already exist: ${spocNames}. Please remove these SPOCs before proceeding.`;
                   } else {
-                    errorMessage = 'Unprocessable Entity: SPOCs already exist. Please check your spoke data and try again.';
+                    errorMessage = ' Entity: SPOCs already exist. Please check your spoke data and try again.';
                   }
                 }
               } catch (parseError) {
@@ -874,9 +908,9 @@ const CmDashboard: React.FC = () => {
                 const spocMatch = errorMessage.match(/SPOCs already exist in the database: (.+?)\./);
                 if (spocMatch) {
                   const spocNames = spocMatch[1];
-                  errorMessage = `Unprocessable Entity: The following SPOCs already exist: ${spocNames}. Please remove these SPOCs before proceeding.`;
+                  errorMessage = ` Entity: The following SPOCs already exist: ${spocNames}. Please remove these SPOCs before proceeding.`;
                 } else {
-                  errorMessage = 'Unprocessable Entity: SPOCs already exist. Please check your spoke data and try again.';
+                  errorMessage = ' Entity: SPOCs already exist. Please check your spoke data and try again.';
                 }
               }
             } else if (errorMessage.includes('500')) {
@@ -894,6 +928,10 @@ const CmDashboard: React.FC = () => {
   const [showToggleConfirmModal, setShowToggleConfirmModal] = useState(false);
   const [toggleConfirmData, setToggleConfirmData] = useState<{ cmCode: string; currentStatus: boolean; id: number } | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+
+  // State for Add 3PM confirmation modal
+  const [showAdd3PMConfirmModal, setShowAdd3PMConfirmModal] = useState(false);
+  const [add3PMConfirmData, setAdd3PMConfirmData] = useState<New3PMData | null>(null);
 
   // Handle checkbox click - show confirmation modal
   const handleCheckboxClick = (cmCode: string, currentStatus: boolean, id: number) => {
@@ -992,6 +1030,19 @@ const CmDashboard: React.FC = () => {
     if (toggleConfirmData) {
       await handleIsActiveChange(toggleConfirmData.cmCode, toggleConfirmData.currentStatus, toggleConfirmData.id);
       handleCloseToggleConfirmModal();
+    }
+  };
+
+  // Handle Add 3PM confirmation modal close
+  const handleCloseAdd3PMConfirmModal = () => {
+    setShowAdd3PMConfirmModal(false);
+    setAdd3PMConfirmData(null);
+  };
+
+  // Handle Add 3PM confirmation modal confirm
+  const handleConfirmAdd3PM = async () => {
+    if (add3PMConfirmData) {
+      await handleAdd3PMConfirmSave();
     }
   };
 
@@ -1245,7 +1296,7 @@ const CmDashboard: React.FC = () => {
                     <tr key={index}>
                       <td>{row.cm_code}</td>
                       <td>{row.cm_description}</td>
-                      <td>{row.region || '-'}</td>
+                      <td>{row.region_name || '-'}</td>
                       <td style={{ display: 'none' }}>{row.srm_lead || '-'}</td>
                       <td
                         className={
@@ -1741,7 +1792,9 @@ const CmDashboard: React.FC = () => {
                 border: '1px solid #f5c6cb'
               }}>
                 <i className="ri-error-warning-line" style={{ marginRight: '8px' }}></i>
-                {add3PMError}
+                <div style={{ whiteSpace: 'pre-line' }}>
+                  {add3PMError}
+                </div>
               </div>
             )}
 
@@ -2488,6 +2541,204 @@ const CmDashboard: React.FC = () => {
               >
                 <i className="ri-check-line"></i>
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add 3PM Confirmation Modal */}
+      {showAdd3PMConfirmModal && add3PMConfirmData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 10001,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '8px',
+            padding: '30px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            position: 'relative'
+          }}>
+            <button
+              onClick={handleCloseAdd3PMConfirmModal}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#000',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px',
+                transition: 'all 0.2s ease',
+                zIndex: 1000
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#333';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#000';
+              }}
+            >
+              <i className="ri-close-line"></i>
+            </button>
+            
+            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: '#30ea03',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 20px',
+                fontSize: '24px',
+                color: '#fff'
+              }}>
+                <i className="ri-question-line"></i>
+              </div>
+              <h3 style={{ 
+                margin: '0 0 10px 0', 
+                color: '#333', 
+                fontSize: '20px',
+                fontWeight: '600'
+              }}>
+                Confirm Add 3PM
+              </h3>
+              <p style={{ 
+                margin: 0, 
+                color: '#666', 
+                fontSize: '14px',
+                lineHeight: '1.5'
+              }}>
+                Are you sure you want to add the following 3PM?
+              </p>
+            </div>
+
+            {/* Data Preview */}
+            <div style={{
+              background: '#f8f9fa',
+              borderRadius: '6px',
+              padding: '15px',
+              marginBottom: '20px',
+              border: '1px solid #e9ecef'
+            }}>
+              <div style={{ marginBottom: '10px' }}>
+                <strong style={{ color: '#333' }}>3PM Code:</strong> {add3PMConfirmData.cm_code}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong style={{ color: '#333' }}>3PM Description:</strong> {add3PMConfirmData.cm_description}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong style={{ color: '#333' }}>Region:</strong> {add3PMConfirmData.region}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong style={{ color: '#333' }}>SRM:</strong> {add3PMConfirmData.srm_name} ({add3PMConfirmData.srm_email})
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong style={{ color: '#333' }}>Period:</strong> {(() => {
+                  const period = periods.find(p => p.id.toString() === add3PMConfirmData.period);
+                  return period ? period.period : add3PMConfirmData.period;
+                })()}
+              </div>
+              <div>
+                <strong style={{ color: '#333' }}>Spocs ({add3PMConfirmData.spokes.length}):</strong>
+                <ul style={{ margin: '5px 0 0 20px', padding: 0 }}>
+                  {add3PMConfirmData.spokes.map((spoke, index) => (
+                    <li key={index} style={{ fontSize: '12px', marginBottom: '2px' }}>
+                      {spoke.name} ({spoke.email}) {spoke.signatory ? '- Signatory' : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={handleCloseAdd3PMConfirmModal}
+                style={{
+                  background: '#6c757d',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#5a6268';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#6c757d';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAdd3PM}
+                style={{
+                  background: '#30ea03',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                disabled={add3PMLoading}
+                onMouseEnter={(e) => {
+                  if (!add3PMLoading) {
+                    e.currentTarget.style.background = '#28c003';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!add3PMLoading) {
+                    e.currentTarget.style.background = '#30ea03';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {add3PMLoading ? (
+                  <>
+                    <i className="ri-loader-4-line spinning"></i>
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <i className="ri-save-line"></i>
+                    Confirm Add
+                  </>
+                )}
               </button>
             </div>
           </div>

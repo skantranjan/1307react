@@ -226,7 +226,11 @@ const CmSkuDetail: React.FC = () => {
     // Filter by SKU Description
     const descMatch =
       appliedFilters.skuDescriptions.length === 0 ||
-      appliedFilters.skuDescriptions.includes(sku.sku_description);
+      appliedFilters.skuDescriptions.some(selectedDesc => {
+        // Extract sku_description from the selected format "cm_code - sku_description"
+        const selectedSkuDesc = selectedDesc.split(' - ')[1] || selectedDesc;
+        return selectedSkuDesc === sku.sku_description;
+      });
 
     // Filter by Component Code (check if any component in this SKU matches the selected component codes)
     const componentMatch =
@@ -393,7 +397,6 @@ const CmSkuDetail: React.FC = () => {
     const fetchYears = async () => {
       try {
         const result = await apiGet('/sku-details-active-years');
-        console.log('Years API response:', result); // Debug log
         
         // Handle different response formats
         let yearsData: any[] = [];
@@ -419,8 +422,6 @@ const CmSkuDetail: React.FC = () => {
             }
           })
           .filter((year: any) => year && year.id && year.period) as Array<{id: string, period: string}>;
-        
-        console.log('Processed years:', processedYears); // Debug log
         setYears(processedYears);
         
         // Set current period as default if available
@@ -547,17 +548,22 @@ const CmSkuDetail: React.FC = () => {
   }, [years, selectedYears.length]);
 
   // Fetch SKU descriptions from API
-  const [skuDescriptions, setSkuDescriptions] = useState<string[]>([]);
+  const [skuDescriptions, setSkuDescriptions] = useState<Array<{value: string, label: string}>>([]);
   const [selectedSkuDescriptions, setSelectedSkuDescriptions] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchDescriptions = async () => {
       try {
         const result = await apiGet('/sku-descriptions');
-        const descriptionsData = result.descriptions || [];
-        // Convert all descriptions to strings to ensure compatibility
-        const descriptionsAsStrings = descriptionsData.map((desc: any) => String(desc)).filter((desc: string) => desc && desc.trim() !== '');
-        setSkuDescriptions(descriptionsAsStrings);
+        const descriptionsData = result.data || [];
+        // Create combined cm_code - sku_description format
+        const descriptionsWithLabels = descriptionsData
+          .filter((item: any) => item.sku_description && item.cm_code)
+          .map((item: any) => ({
+            value: `${item.cm_code} - ${item.sku_description}`,
+            label: `${item.cm_code} - ${item.sku_description}`
+          }));
+        setSkuDescriptions(descriptionsWithLabels);
       } catch (err) {
         setSkuDescriptions([]);
       }
@@ -597,12 +603,9 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchMaterialTypes = async () => {
       try {
-        console.log('Fetching material types from API...');
         const result = await apiGet('/component-master-material-type');
-        console.log('Material types API response:', result);
         if (result.success) {
           setMaterialTypes(result.data);
-          console.log('Material types loaded:', result.data);
         }
       } catch (error) {
         console.error('Error fetching material types:', error);
@@ -618,12 +621,9 @@ const CmSkuDetail: React.FC = () => {
   useEffect(() => {
     const fetchUnitOfMeasureOptions = async () => {
       try {
-        console.log('Fetching UOM options from API...');
         const result = await apiGet('/master-component-umo');
-        console.log('UOM API response:', result);
         if (result.success && Array.isArray(result.data)) {
           setUnitOfMeasureOptions(result.data);
-          console.log('UOM options loaded:', result.data);
         } else {
           setUnitOfMeasureOptions([]);
         }
@@ -1056,6 +1056,10 @@ const CmSkuDetail: React.FC = () => {
   const [addSkuReference, setAddSkuReference] = useState('');
   const [addSkuContractor, setAddSkuContractor] = useState(''); // New field for Contractor
   const [addSkuNameSite, setAddSkuNameSite] = useState(''); // New field for Name Site
+  
+  // Add state for Reference SKU options
+  const [referenceSkuOptions, setReferenceSkuOptions] = useState<Array<{value: string, label: string}>>([]);
+  const [referenceSkuLoading, setReferenceSkuLoading] = useState(false);
   // const [addSkuQty, setAddSkuQty] = useState(''); // Hidden for now, may be used later
   const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', server: '' });
   const [addSkuSuccess, setAddSkuSuccess] = useState('');
@@ -1075,6 +1079,37 @@ const CmSkuDetail: React.FC = () => {
   const [showComponentTable, setShowComponentTable] = useState(false);
   const [selectedComponentIds, setSelectedComponentIds] = useState<number[]>([]);
   const [componentsToSave, setComponentsToSave] = useState<any[]>([]); // Object to store data for API
+
+  /**
+   * fetchReferenceSkuOptions Function
+   * Fetches SKUs for the Reference SKU dropdown based on selected 3PM and period
+   * Uses the GET /getskureference/:period/:cm_code API endpoint
+   */
+  const fetchReferenceSkuOptions = async (period: string, cmCode: string) => {
+    try {
+      setReferenceSkuLoading(true);
+      const result = await apiGet(`/getskureference/${period}/${cmCode}`);
+      
+      if (result.success && result.data) {
+        // Format SKU data for dropdown options with period name
+        const options = result.data.map((sku: any) => {
+          // Get period name from the years array
+          const periodName = years.find(year => year.id === sku.period)?.period || sku.period;
+          return {
+            value: sku.sku_code,
+            label: `${sku.sku_code} (${periodName})`
+          };
+        });
+        
+        setReferenceSkuOptions(options);
+      }
+    } catch (error) {
+      console.error('Error fetching reference SKU options:', error);
+      setReferenceSkuOptions([]);
+    } finally {
+      setReferenceSkuLoading(false);
+    }
+  };
 
   /**
    * fetchThreePmOptions Function
@@ -1191,8 +1226,8 @@ const CmSkuDetail: React.FC = () => {
   // Validate reference SKU against SKU code
   const validateReferenceSku = (referenceValue: string) => {
     if (showSkuTypeSection && referenceValue.trim() && addSku.trim().toLowerCase() === referenceValue.trim().toLowerCase()) {
-      setAddSkuErrors(prev => ({ ...prev, referenceSku: 'Reference SKU cannot be the same as SKU Code' }));
-      return false;
+      setAddSkuErrors(prev => ({ ...prev, referenceSku: 'Reference SKU can be the same as SKU Code' }));
+      return true; // Allow form submission even when they are the same
     } else {
       setAddSkuErrors(prev => ({ ...prev, referenceSku: '' }));
       return true;
@@ -1253,27 +1288,21 @@ const CmSkuDetail: React.FC = () => {
     
     // Validate that SKU Code and Reference SKU are not the same
     if (showSkuTypeSection && addSkuReference.trim() && addSku.trim().toLowerCase() === addSkuReference.trim().toLowerCase()) {
-      errors.referenceSku = 'Reference SKU cannot be the same as SKU Code';
+      errors.referenceSku = 'Reference SKU can be the same as SKU Code';
+      // Don't block form submission, just show the message
     }
     
     setAddSkuErrors(errors);
     setAddSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period || errors.referenceSku) return;
+    // Only block submission for actual errors, not informational messages
+    if (errors.sku || errors.skuDescription || errors.period) return;
 
     // ===== API CALL PREPARATION =====
     setAddSkuLoading(true);  // Show loading state
     try {
-      // Debug logging for troubleshooting
-      console.log('Sending SKU Type:', addSkuType);
-      const apiUrl = `http://localhost:3000/sku-details/add?skutype=${encodeURIComponent(addSkuType)}`;
-      console.log('API URL:', apiUrl);
-      console.log('Complete request details:', {
-        url: apiUrl,
-        method: 'POST',
-        skutype_param: addSkuType,
-        skutype_in_body: addSkuType
-      });
-      const response = await apiPost(`/sku-details/add?skutype=${encodeURIComponent(addSkuType)}`, {
+      console.log('componentsToSave before API call:', componentsToSave);
+      console.log('componentsToSave length:', componentsToSave.length);
+      const result = await apiPost(`/sku-details/add?skutype=${encodeURIComponent(addSkuType)}`, {
           sku_data: {
             sku_code: addSku,
             sku_description: addSkuDescription,
@@ -1317,8 +1346,53 @@ const CmSkuDetail: React.FC = () => {
             periods: component.periods
           }))
         });
-      const result = await response.json();
-      if (!response.ok || !result.success) {
+      
+      console.log('Full request body being sent:', {
+        sku_data: {
+          sku_code: addSku,
+          sku_description: addSkuDescription,
+          site: addSkuNameSite,
+          cm_code: cmCode,
+          sku_reference: addSkuReference,
+          period: addSkuPeriod,
+          formulation_reference: addSkuFormulationReference,
+          skutype: addSkuType
+        },
+        components: componentsToSave.map(component => ({
+          component_code: component.component_code,
+          component_description: component.component_description,
+          component_quantity: component.component_quantity,
+          percent_w_w: component.percent_w_w,
+          formulation_reference: component.formulation_reference,
+          material_type_id: component.material_type_id,
+          components_reference: component.components_reference,
+          component_valid_from: component.component_valid_from,
+          component_valid_to: component.component_valid_to,
+          component_material_group: component.component_material_group,
+          component_uom_id: component.component_uom_id,
+          component_base_quantity: component.component_base_quantity,
+          component_base_uom_id: component.component_base_uom_id,
+          evidence: component.evidence,
+          component_packaging_type_id: component.component_packaging_type_id,
+          component_packaging_material: component.component_packaging_material,
+          component_unit_weight: component.component_unit_weight,
+          weight_unit_measure_id: component.weight_unit_measure_id,
+          percent_mechanical_pcr_content: component.percent_mechanical_pcr_content,
+          percent_mechanical_pir_content: component.percent_mechanical_pir_content,
+          percent_chemical_recycled_content: component.percent_chemical_recycled_content,
+          percent_bio_sourced: component.percent_bio_sourced,
+          material_structure_multimaterials: component.material_structure_multimaterials,
+          component_packaging_color_opacity: component.component_packaging_color_opacity,
+          component_packaging_level_id: component.component_packaging_level_id,
+          component_dimensions: component.component_dimensions,
+          packaging_specification_evidence: component.packaging_specification_evidence,
+          evidence_of_recycled_or_bio_source: component.evidence_of_recycled_or_bio_source,
+          cm_code: component.cm_code,
+          periods: component.periods
+        }))
+      });
+      
+      if (!result.success) {
         // Server-side validation error
         setAddSkuErrors({ ...errors, server: result.message || 'Server validation failed' });
         setAddSkuLoading(false);
@@ -1326,7 +1400,6 @@ const CmSkuDetail: React.FC = () => {
       }
       
       // Success - Handle the new response format
-      console.log('SKU Add API Response:', result);
       
       if (result.sku_data && result.component_results) {
         setAddSkuSuccess(`SKU added successfully! SKU ID: ${result.sku_data.id}, Components processed: ${result.components_processed}`);
@@ -1335,7 +1408,7 @@ const CmSkuDetail: React.FC = () => {
       }
       setAddSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', server: '' });
       // Call audit log API
-      const auditResponse = await apiPost('/sku-auditlog/add', {
+      const auditResult = await apiPost('/sku-auditlog/add', {
         sku_code: addSku,
         sku_description: addSkuDescription,
         cm_code: cmCode,
@@ -1344,10 +1417,6 @@ const CmSkuDetail: React.FC = () => {
         created_by: 'system', // or use actual user if available
         created_date: new Date().toISOString()
       });
-      if (!auditResponse.ok) {
-        throw new Error('Failed to add audit log');
-      }
-      const auditResult = await auditResponse.json();
       if (!auditResult.success) {
         throw new Error('API returned unsuccessful response for audit log');
       }
@@ -1370,7 +1439,7 @@ const CmSkuDetail: React.FC = () => {
         setLoading(true); // show full-page loader
         await fetchSkuDetails(); // refresh data
         // Refresh component details for all SKUs to ensure consistency
-        const updatedSkuData = await apiGet('/sku-details').then(res => res.json());
+        const updatedSkuData = await apiGet('/sku-details');
         if (updatedSkuData.success && updatedSkuData.data) {
           for (const sku of updatedSkuData.data) {
             await fetchComponentDetails(sku.sku_code);
@@ -1420,8 +1489,7 @@ const CmSkuDetail: React.FC = () => {
 
     setEditSkuSearchLoading(true);
     try {
-      const response = await apiGet(`/skureference/${encodeURIComponent(searchTerm)}`);
-      const result = await response.json();
+      const result = await apiGet(`/skureference/${encodeURIComponent(searchTerm)}`);
       
       if (result.success && result.data) {
         const mappedResults = result.data.map((item: any) => {
@@ -1546,7 +1614,7 @@ const CmSkuDetail: React.FC = () => {
         setLoading(true); // show full-page loader
         await fetchSkuDetails(); // refresh data
         // Refresh component details for all SKUs to ensure consistency
-        const updatedSkuData = await apiGet('/sku-details').then(res => res.json());
+        const updatedSkuData = await apiGet('/sku-details');
         if (updatedSkuData.success && updatedSkuData.data) {
           for (const sku of updatedSkuData.data) {
             await fetchComponentDetails(sku.sku_code);
@@ -1724,62 +1792,64 @@ const CmSkuDetail: React.FC = () => {
   const getFilteredComponents = (skuCode: string) => {
     const components = componentDetails[skuCode] || [];
     
-    console.log('Selected material type:', selectedMaterialType);
-    console.log('Available components:', components);
-    console.log('Component material_type_ids:', components.map(c => ({ id: c.material_type_id, type: typeof c.material_type_id })));
-    
     if (selectedMaterialType === 'packaging') {
-      const filtered = components.filter(component => {
+      return components.filter(component => {
         const materialTypeId = parseInt(component.material_type_id);
-        console.log(`Component ${component.id}: material_type_id = ${component.material_type_id} (${typeof component.material_type_id}), parsed = ${materialTypeId}`);
         return materialTypeId === 1;
       });
-      console.log('Filtered packaging components (ID 1):', filtered);
-      return filtered;
     } else if (selectedMaterialType === 'raw_material') {
-      const filtered = components.filter(component => {
+      return components.filter(component => {
         const materialTypeId = parseInt(component.material_type_id);
-        console.log(`Component ${component.id}: material_type_id = ${component.material_type_id} (${typeof component.material_type_id}), parsed = ${materialTypeId}`);
         return materialTypeId === 2;
       });
-      console.log('Filtered raw material components (ID 2):', filtered);
-      return filtered;
     }
-    console.log('Showing all components (no filter applied)');
     return components; // Show all if no specific filter
   };
 
-  // Function to fetch component details for a SKU
+  // Function to fetch component details for a SKU using new API
   const fetchComponentDetails = async (skuCode: string) => {
     setComponentDetailsLoading(prev => ({ ...prev, [skuCode]: true }));
     try {
-      const res = await apiGet(`/component-details/${skuCode}`);
-      const data = await res.json();
+      // Use the new API with POST request
+      const requestBody = {
+        cm_code: cmCode || addSkuContractor, // Use selected 3PM or current cm_code
+        sku_code: skuCode
+      };
       
-      // Map the component data to include display names
-      console.log('Raw component data:', data.data);
-      console.log('Available materialTypes for mapping:', materialTypes);
+      const data = await apiPost('/getcomponetbyskurefrence', requestBody);
       
-      const mappedData = (data.data || []).map((component: any) => {
-        console.log('Processing component:', component);
-        const mapped = {
-          ...component,
-          // Map IDs to display names
-          material_type_display: getMaterialTypeName(component.material_type_id),
-          component_uom_display: getUomName(component.component_uom_id),
-          component_base_uom_display: getUomName(component.component_base_uom_id),
-          component_packaging_type_display: getPackagingMaterialName(component.component_packaging_type_id),
-          component_packaging_level_display: getPackagingLevelName(component.component_packaging_level_id),
-          weight_unit_measure_display: getUomName(component.weight_unit_measure_id),
-          component_unit_weight_display: getUomName(component.component_unit_weight_id)
-        };
-        console.log('Mapped component:', mapped);
-        return mapped;
-      });
-      
-      setComponentDetails(prev => ({ ...prev, [skuCode]: mappedData }));
+      if (data.success && data.data) {
+        // Map the component data to include display names
+        const mappedData = (data.data || []).map((component: any) => {
+          const mapped = {
+            ...component,
+            // Map IDs to display names
+            material_type_display: getMaterialTypeName(component.material_type_id),
+            component_uom_display: getUomName(component.component_uom_id),
+            component_base_uom_display: getUomName(component.component_base_uom_id),
+            component_packaging_type_display: getPackagingMaterialName(component.component_packaging_type_id),
+            component_packaging_level_display: getPackagingLevelName(component.component_packaging_level_id),
+            weight_unit_measure_display: getUomName(component.weight_unit_measure_id),
+            component_unit_weight_display: getUomName(component.component_unit_weight_id)
+          };
+          return mapped;
+        });
+        
+        setComponentDetails(prev => ({ ...prev, [skuCode]: mappedData }));
+        // Also update selectedSkuComponents for the table display
+        setSelectedSkuComponents(mappedData);
+        // Store components for API call
+        setComponentsToSave(mappedData);
+      } else {
+        setComponentDetails(prev => ({ ...prev, [skuCode]: [] }));
+        setSelectedSkuComponents([]);
+        setComponentsToSave([]);
+      }
     } catch (err) {
+      console.error('Error fetching component details:', err);
       setComponentDetails(prev => ({ ...prev, [skuCode]: [] }));
+      setSelectedSkuComponents([]);
+      setComponentsToSave([]);
     } finally {
       setComponentDetailsLoading(prev => ({ ...prev, [skuCode]: false }));
     }
@@ -1787,9 +1857,6 @@ const CmSkuDetail: React.FC = () => {
 
   // Add Component handler
   const handleAddComponentSave = async () => {
-    console.log('Save button clicked');
-    console.log('Component Category value:', addComponentData.componentCategory);
-    
     // Validation for required fields
     const errors: Record<string, string> = {};
     if (!selectedSkuCode) errors.skuCode = 'A value is required for SKU Code';
@@ -1798,7 +1865,6 @@ const CmSkuDetail: React.FC = () => {
     
     setAddComponentErrors(errors);
     if (Object.keys(errors).length > 0) {
-      console.log('Validation errors:', errors);
       return;
     }
 
@@ -1813,8 +1879,6 @@ const CmSkuDetail: React.FC = () => {
       formData.append('component_code', addComponentData.componentCode || '');
       
       // Debug logging for year and periods
-      console.log('Selected Years:', selectedYears);
-      console.log('Year being sent:', selectedYears.length > 0 ? selectedYears[0] : '');
       
       // ===== OPTIONAL COMPONENT FIELDS =====
       formData.append('component_description', addComponentData.componentDescription || '');
@@ -2754,9 +2818,7 @@ const CmSkuDetail: React.FC = () => {
   <div className="fBold">SKU Code-Description</div>
   <div className="form-control">
     <MultiSelect 
-      options={skuDescriptions
-        .filter(desc => desc && typeof desc === 'string' && desc.trim() !== '')
-        .map(desc => ({ value: desc, label: desc }))}
+      options={skuDescriptions}
       selectedValues={selectedSkuDescriptions}
       onSelectionChange={setSelectedSkuDescriptions}
       placeholder="Select SKU Code-Description..."
@@ -2801,6 +2863,10 @@ const CmSkuDetail: React.FC = () => {
                       onClick={() => {
                         setShowSkuModal(true);
                         fetchThreePmOptions(); // Fetch 3PM options when modal opens
+                        // Set default period to the first available period
+                        if (years.length > 0) {
+                          setAddSkuPeriod(years[0].id);
+                        }
                       }}
                     >
                       <span>Add SKU</span> <i className="ri-add-circle-line"></i>
@@ -4284,17 +4350,23 @@ const CmSkuDetail: React.FC = () => {
                     <div className="col-md-6">
                       <label>Period <span style={{ color: 'red' }}>*</span></label>
                       <div style={{ position: 'relative' }}>
-                        <select
-                          className={`form-control${addSkuErrors.period ? ' is-invalid' : ''}`}
-                          value={addSkuPeriod}
-                          onChange={e => setAddSkuPeriod(e.target.value)}
-                          disabled={addSkuLoading}
-                          style={{ 
-                            appearance: 'none',
-                            paddingRight: '30px'
-                          }}
-                        >
-                          <option value="">Select Period</option>
+                                                        <select
+                                  className={`form-control${addSkuErrors.period ? ' is-invalid' : ''}`}
+                                  value={addSkuPeriod}
+                                  onChange={e => {
+                                    const newPeriod = e.target.value;
+                                    setAddSkuPeriod(newPeriod);
+                                    // Reset both 3PM and Reference SKU when period changes
+                                    setAddSkuContractor('');
+                                    setAddSkuReference('');
+                                    setReferenceSkuOptions([]);
+                                  }}
+                                  disabled={addSkuLoading}
+                                  style={{ 
+                                    appearance: 'none',
+                                    paddingRight: '30px'
+                                  }}
+                                >
                           {years.map(year => (
                             <option key={year.id} value={year.id}>{year.period}</option>
                           ))}
@@ -4322,6 +4394,13 @@ const CmSkuDetail: React.FC = () => {
                         className={`form-control${addSkuErrors.sku ? ' is-invalid' : ''}`}
                         value={addSku}
                         onChange={e => setAddSku(e.target.value)}
+                        onBlur={() => {
+                          // Validate when leaving SKU Code field
+                          if (addSku.trim() && addSkuReference.trim() && 
+                              addSku.trim().toLowerCase() === addSkuReference.trim().toLowerCase()) {
+                            setAddSkuErrors(prev => ({ ...prev, referenceSku: 'Reference SKU can be the same as SKU Code' }));
+                          }
+                        }}
                         disabled={addSkuLoading}
                       />
                       {addSkuErrors.sku && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.sku}</div>}
@@ -4404,7 +4483,7 @@ const CmSkuDetail: React.FC = () => {
                         {addSkuType === 'internal' && (
                           <>
                             <div className="col-md-6">
-                              {/* <label>Reference SKU</label> */}
+                              <label>Reference SKU</label>
                               <input
                                 type="text"
                                 className={`form-control${addSkuErrors.referenceSku ? ' is-invalid' : ''}`}
@@ -4461,7 +4540,19 @@ const CmSkuDetail: React.FC = () => {
                                 <select
                                   className="form-control"
                                   value={addSkuContractor}
-                                  onChange={e => setAddSkuContractor(e.target.value)}
+                                  onChange={e => {
+                                    const selectedCmCode = e.target.value;
+                                    setAddSkuContractor(selectedCmCode);
+                                    
+                                    // Reset Reference SKU when 3PM changes
+                                    setAddSkuReference('');
+                                    setReferenceSkuOptions([]);
+                                    
+                                    // Fetch Reference SKU options when 3PM is selected
+                                    if (selectedCmCode && addSkuPeriod) {
+                                      fetchReferenceSkuOptions(addSkuPeriod, selectedCmCode);
+                                    }
+                                  }}
                                   disabled={addSkuLoading}
                                   style={{ 
                                     appearance: 'none',
@@ -4494,71 +4585,74 @@ const CmSkuDetail: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Section 2: Reference SKU Search */}
+                            {/* Section 2: Reference SKU Dropdown */}
                             <div className="col-md-6">
                               <label>Reference SKU</label>
-                              <div style={{ position: 'relative' }} className="sku-search-container">
-                                <input
-                                  type="text"
+                              <div style={{ position: 'relative' }}>
+                                <select
                                   className={`form-control${addSkuErrors.referenceSku ? ' is-invalid' : ''}`}
                                   value={addSkuReference}
                                   onChange={e => {
-                                    setAddSkuReference(e.target.value);
-                                    validateReferenceSku(e.target.value);
-                                    searchSkuReference(e.target.value);
+                                    const selectedValue = e.target.value;
+                                    setAddSkuReference(selectedValue);
+                                    validateReferenceSku(selectedValue);
+                                    
+                                    // Additional validation when Reference SKU is selected
+                                    if (selectedValue && addSku.trim() && 
+                                        selectedValue.toLowerCase() === addSku.trim().toLowerCase()) {
+                                      console.log('Setting reference SKU error message');
+                                      setAddSkuErrors(prev => ({ ...prev, referenceSku: 'Reference SKU can be the same as SKU Code' }));
+                                    }
+                                    
+                                    // Fetch component details when Reference SKU is selected
+                                    if (selectedValue) {
+                                      fetchComponentDetails(selectedValue);
+                                      setShowComponentTable(true);
+                                    } else {
+                                      setShowComponentTable(false);
+                                      setSelectedSkuComponents([]);
+                                    }
                                   }}
-                                  placeholder="Search SKU Reference"
-                                  disabled={addSkuLoading}
-                                  style={{ paddingRight: '40px' }}
-                                />
-                                {addSkuErrors.referenceSku && <div className="invalid-feedback" style={{ color: 'red', position: 'absolute', top: '100%', left: 0, zIndex: 1001 }}>{addSkuErrors.referenceSku}</div>}
-                                {skuSearchLoading && (
-                                  <div style={{
+                                  disabled={addSkuLoading || referenceSkuLoading || !addSkuContractor}
+                                  style={{ 
+                                    appearance: 'none',
+                                    paddingRight: '30px'
+                                  }}
+                                >
+                                  <option value="">{!addSkuContractor ? 'Please select 3PM first' : 'Select Reference SKU'}</option>
+                                  {referenceSkuLoading ? (
+                                    <option value="" disabled>Loading Reference SKUs...</option>
+                                  ) : (
+                                    referenceSkuOptions.map((option, index) => (
+                                      <option key={index} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))
+                                  )}
+                                </select>
+                                <i 
+                                  className="ri-arrow-down-s-line" 
+                                  style={{
                                     position: 'absolute',
                                     right: '10px',
                                     top: '50%',
                                     transform: 'translateY(-50%)',
-                                    pointerEvents: 'none'
-                                  }}>
-                                    <i className="ri-loader-4-line" style={{ animation: 'spin 1s linear infinite' }}></i>
-                                  </div>
-                                )}
-                                {showSkuSearchResults && skuSearchResults.length > 0 && (
-                                  <div style={{
-                                    position: 'absolute',
-                                    top: '100%',
-                                    left: 0,
-                                    right: 0,
-                                    backgroundColor: 'white',
-                                    border: '1px solid #ddd',
-                                    borderRadius: '4px',
-                                    maxHeight: '200px',
-                                    overflowY: 'auto',
-                                    zIndex: 1000,
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                  }}>
-                                    {skuSearchResults.map((sku, index) => (
-                                      <div
-                                        key={index}
-                                        style={{
-                                          padding: '8px 12px',
-                                          cursor: 'pointer',
-                                          borderBottom: '1px solid #eee',
-                                          fontSize: '14px'
-                                        }}
-                                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8f9fa'}
-                                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'white'}
-                                        onClick={() => handleSkuReferenceSelect(sku)}
-                                      >
-                                        <div style={{ fontWeight: '500' }}>{sku.sku_code}</div>
-                                        <div style={{ fontSize: '12px', color: '#666' }}>
-                                          {sku.sku_description} - {sku.period_name}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                    pointerEvents: 'none',
+                                    color: '#666',
+                                    fontSize: '16px'
+                                  }}
+                                />
                               </div>
+                              {addSkuErrors.referenceSku && (
+                                <div className="invalid-feedback" style={{ 
+                                  color: 'red', 
+                                  display: 'block',
+                                  fontSize: '12px',
+                                  marginTop: '5px'
+                                }}>
+                                  {addSkuErrors.referenceSku}
+                                </div>
+                              )}
                             </div>
                           </>
                         )}

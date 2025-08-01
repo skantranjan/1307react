@@ -48,6 +48,8 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
     option.value.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+
+
   // Handle individual option selection
   const handleOptionToggle = (value: string) => {
     const newSelectedValues = selectedValues.includes(value)
@@ -115,41 +117,42 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
             />
           </div>
           
-          {/* Select All Option */}
-          {filteredOptions.length > 0 && (
-            <div className="multi-select-option select-all">
-              <label className="checkbox-container">
-                <input
-                  type="checkbox"
-                  checked={areAllFilteredSelected}
-                  onChange={handleSelectAll}
-                />
-                <span className="checkmark"></span>
-                <span className="option-label">
-                  {areAllFilteredSelected ? 'Deselect All' : 'Select All'}
-                </span>
-              </label>
-            </div>
-          )}
-          
           {/* Options List */}
           <div className="multi-select-options">
             {filteredOptions.length === 0 ? (
               <div className="no-options">No options found</div>
             ) : (
-              filteredOptions.map((option) => (
-                <div key={option.value} className="multi-select-option">
+              <>
+                {/* Select All Option */}
+                <div className="multi-select-option select-all">
                   <label className="checkbox-container">
                     <input
                       type="checkbox"
-                      checked={selectedValues.includes(option.value)}
-                      onChange={() => handleOptionToggle(option.value)}
+                      checked={areAllFilteredSelected}
+                      onChange={handleSelectAll}
                     />
                     <span className="checkmark"></span>
-                    <span className="option-label">{option.label}</span>
+                    <span className="option-label">
+                      {areAllFilteredSelected ? 'Deselect All' : 'Select All'}
+                    </span>
                   </label>
                 </div>
-              ))
+                
+                {/* Individual Options */}
+                {filteredOptions.map((option) => (
+                  <div key={option.value} className="multi-select-option">
+                    <label className="checkbox-container">
+                      <input
+                        type="checkbox"
+                        checked={selectedValues.includes(option.value)}
+                        onChange={() => handleOptionToggle(option.value)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="option-label">{option.label}</span>
+                    </label>
+                  </div>
+                ))}
+              </>
             )}
           </div>
         </div>
