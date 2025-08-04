@@ -1116,7 +1116,7 @@ const CmSkuDetail: React.FC = () => {
    * Fetches unique and active cm_code values from the SKU details API
    * Used to populate the 3PM dropdown in the Add SKU modal
    */
-  const fetchThreePmOptions = async () => {
+  const fetchThreePmOptions = async (currentCmCode?: string) => {
     try {
       setThreePmLoading(true);
       const result = await apiGet('/sku-details');
@@ -1133,6 +1133,14 @@ const CmSkuDetail: React.FC = () => {
             });
           }
         });
+        
+        // If we have a current cm_code, ensure it's included in the options
+        if (currentCmCode) {
+          uniqueCmCodes.set(currentCmCode, {
+            cm_code: currentCmCode,
+            cm_description: undefined
+          });
+        }
         
         // Convert Map to Array and sort by cm_code
         const options = Array.from(uniqueCmCodes.values()).sort((a, b) => a.cm_code.localeCompare(b.cm_code));
@@ -1477,6 +1485,48 @@ const CmSkuDetail: React.FC = () => {
   const [editSkuSearchLoading, setEditSkuSearchLoading] = useState(false);
   const [editSelectedSkuComponents, setEditSelectedSkuComponents] = useState<any[]>([]);
   const [showEditComponentTable, setShowEditComponentTable] = useState(false);
+  
+  // Edit SKU Reference SKU functionality (similar to Add SKU)
+  const [editReferenceSkuOptions, setEditReferenceSkuOptions] = useState<Array<{value: string, label: string}>>([]);
+  const [editReferenceSkuLoading, setEditReferenceSkuLoading] = useState(false);
+  const [editSkuContractor, setEditSkuContractor] = useState<string>('');
+  const [editSkuReference, setEditSkuReference] = useState<string>('');
+  const [editShowReferenceSku, setEditShowReferenceSku] = useState<boolean>(false);
+  
+  // Reference SKU confirmation modal state
+  const [showReferenceSkuConfirmModal, setShowReferenceSkuConfirmModal] = useState<boolean>(false);
+
+  // Edit SKU Reference SKU options fetch function
+  const fetchEditReferenceSkuOptions = async (period: string, cmCode: string) => {
+    if (!period || !cmCode) {
+      setEditReferenceSkuOptions([]);
+      return;
+    }
+
+    setEditReferenceSkuLoading(true);
+    try {
+      const result = await apiGet(`/getskureference/${period}/${cmCode}`);
+      
+      if (result.success && result.data) {
+        const mappedOptions = result.data.map((sku: any) => {
+          // Get period name from the years array (same as Add SKU modal)
+          const periodName = years.find(year => year.id === sku.period)?.period || sku.period;
+          return {
+            value: sku.sku_code,
+            label: `${sku.sku_code} (${periodName})`
+          };
+        });
+        setEditReferenceSkuOptions(mappedOptions);
+      } else {
+        setEditReferenceSkuOptions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching edit reference SKU options:', error);
+      setEditReferenceSkuOptions([]);
+    } finally {
+      setEditReferenceSkuLoading(false);
+    }
+  };
 
   // Edit SKU search function
   const searchEditSkuReference = async (searchTerm: string) => {
@@ -1536,6 +1586,17 @@ const CmSkuDetail: React.FC = () => {
     setShowEditComponentTable(true);
   };
 
+  // Handle Reference SKU confirmation modal
+  const handleReferenceSkuConfirm = () => {
+    setShowReferenceSkuConfirmModal(false);
+    setEditShowReferenceSku(true);
+  };
+
+  const handleReferenceSkuCancel = () => {
+    setShowReferenceSkuConfirmModal(false);
+    // Keep checkbox unchecked
+  };
+
   // Handle Edit component deletion
   const handleEditDeleteComponent = (componentId: number) => {
     if (window.confirm('Are you sure you want to delete this component?')) {
@@ -1547,11 +1608,8 @@ const CmSkuDetail: React.FC = () => {
 
   // Handler to open Edit SKU modal (to be called on Edit SKU button click)
   const handleEditSkuOpen = (sku: SkuData) => {
-    // Convert period ID to period name
-    const periodName = getPeriodTextFromId(sku.period);
-    
     setEditSkuData({
-      period: periodName || '',
+      period: sku.period || '', // Use period ID instead of period name
       sku: sku.sku_code || '',
       skuDescription: sku.sku_description || '',
       formulationReference: sku.formulation_reference || '',
@@ -1561,6 +1619,27 @@ const CmSkuDetail: React.FC = () => {
       qty: sku.purchased_quantity != null ? String(sku.purchased_quantity) : '',
       dualSource: sku.dual_source_sku || '',
     });
+    
+    // Initialize edit reference SKU state
+    setEditSkuContractor(sku.cm_code || '');
+    setEditSkuReference(sku.sku_reference || '');
+    setEditReferenceSkuOptions([]);
+    setEditSelectedSkuComponents([]);
+    setShowEditComponentTable(false);
+    
+    // Set checkbox state to unchecked by default
+    setEditShowReferenceSku(false);
+    
+    // Fetch reference SKU options if it's an external SKU
+    if (sku.skutype === 'external' && sku.cm_code && sku.period) {
+      fetchEditReferenceSkuOptions(sku.period, sku.cm_code);
+    }
+    
+    // Fetch 3PM options for the period, including current SKU's cm_code
+    if (sku.period) {
+      fetchThreePmOptions(sku.cm_code);
+    }
+    
     setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
     setEditSkuSuccess('');
     setShowEditSkuModal(true);
@@ -1573,26 +1652,63 @@ const CmSkuDetail: React.FC = () => {
     if (!editSkuData.sku.trim()) errors.sku = 'A value is required for SKU code';
     if (!editSkuData.skuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
     if (!editSkuData.period) errors.period = 'A value is required for the Period';
+    
+    // Validate reference SKU based on type
+    if (editSkuData.skuType === 'external' && !editSkuContractor) {
+      errors.skuType = '3PM is required for External SKU type';
+    }
+    if (editSkuData.skuType === 'external' && editSkuContractor && !editSkuReference) {
+      errors.skuType = 'Reference SKU is required for External SKU type';
+    }
+    
     setEditSkuErrors(errors);
     setEditSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period) return;
+    if (errors.sku || errors.skuDescription || errors.period || errors.skuType) return;
 
     // PUT to API
     setEditSkuLoading(true);
     try {
-      const response = await apiPut(`/sku-details/update/${encodeURIComponent(editSkuData.sku)}`, {
-        sku_description: editSkuData.skuDescription
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) {
+      const updateData: any = {
+        sku_description: editSkuData.skuDescription,
+        formulation_reference: editSkuData.formulationReference,
+        skutype: editSkuData.skuType
+      };
+
+      // Add reference SKU based on type
+      if (editSkuData.skuType === 'internal') {
+        updateData.sku_reference = editSkuReference;
+      } else if (editSkuData.skuType === 'external') {
+        updateData.sku_reference = editSkuReference;
+      }
+
+      // Add component data if available
+      if (editSelectedSkuComponents && editSelectedSkuComponents.length > 0) {
+        updateData.components = editSelectedSkuComponents;
+        console.log('Sending component data:', editSelectedSkuComponents);
+      }
+
+      const result = await apiPut(`/sku-details/update/${encodeURIComponent(editSkuData.sku)}`, updateData);
+      if (!result.success) {
         setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: result.message || 'Server validation failed' });
         setEditSkuLoading(false);
         return;
       }
-      setEditSkuSuccess('SKU updated successfully!');
+      
+      // Handle component updates if present in response
+      let successMessage = 'SKU updated successfully!';
+      if (result.component_updates) {
+        successMessage += `\n\nComponent Updates:\n${result.component_updates.message}\nUpdated Components: ${result.component_updates.updated_components}`;
+        if (result.component_updates.details) {
+          result.component_updates.details.forEach((detail: any) => {
+            successMessage += `\n- ${detail.component_code}: ${detail.old_sku_code} → ${detail.new_sku_code}`;
+          });
+        }
+      }
+      
+      setEditSkuSuccess(successMessage);
       setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
       // Call audit log API
-      const auditResponse = await apiPost('/sku-auditlog/add', {
+      const auditResult = await apiPost('/sku-auditlog/add', {
         sku_code: editSkuData.sku,
         sku_description: editSkuData.skuDescription,
         cm_code: cmCode,
@@ -1601,10 +1717,6 @@ const CmSkuDetail: React.FC = () => {
         created_by: 'system', // or use actual user if available
         created_date: new Date().toISOString()
       });
-      if (!auditResponse.ok) {
-        throw new Error('Failed to add audit log');
-      }
-      const auditResult = await auditResponse.json();
       if (!auditResult.success) {
         throw new Error('API returned unsuccessful response for audit log');
       }
@@ -1622,8 +1734,9 @@ const CmSkuDetail: React.FC = () => {
         }
         setLoading(false); // hide loader
       }, 1200);
-    } catch (err) {
-      setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: 'Network or server error' });
+    } catch (err: any) {
+      console.error('Edit SKU Update Error:', err);
+      setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: `Network or server error: ${err?.message || 'Unknown error'}` });
     } finally {
       setEditSkuLoading(false);
     }
@@ -1838,17 +1951,24 @@ const CmSkuDetail: React.FC = () => {
         setComponentDetails(prev => ({ ...prev, [skuCode]: mappedData }));
         // Also update selectedSkuComponents for the table display
         setSelectedSkuComponents(mappedData);
+        // Update editSelectedSkuComponents for Edit SKU modal
+        setEditSelectedSkuComponents(mappedData);
+        setShowEditComponentTable(true);
         // Store components for API call
         setComponentsToSave(mappedData);
       } else {
         setComponentDetails(prev => ({ ...prev, [skuCode]: [] }));
         setSelectedSkuComponents([]);
+        setEditSelectedSkuComponents([]);
+        setShowEditComponentTable(false);
         setComponentsToSave([]);
       }
     } catch (err) {
       console.error('Error fetching component details:', err);
       setComponentDetails(prev => ({ ...prev, [skuCode]: [] }));
       setSelectedSkuComponents([]);
+      setEditSelectedSkuComponents([]);
+      setShowEditComponentTable(false);
       setComponentsToSave([]);
     } finally {
       setComponentDetailsLoading(prev => ({ ...prev, [skuCode]: false }));
@@ -4879,13 +4999,21 @@ const CmSkuDetail: React.FC = () => {
                     {/* Period */}
                     <div className="col-md-6">
                       <label>Period <span style={{ color: 'red' }}>*</span></label>
-                      <input
-                        type="text"
+                      <select
                         className="form-control"
                         value={editSkuData.period}
-                        readOnly
-                        style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
-                      />
+                        disabled={true}
+                        style={{ 
+                          background: '#f5f5f5', 
+                          cursor: 'not-allowed',
+                          appearance: 'none',
+                          paddingRight: '30px'
+                        }}
+                      >
+                        {years.map(year => (
+                          <option key={year.id} value={year.id}>{year.period}</option>
+                        ))}
+                      </select>
                     </div>
                     {/* SKU */}
                     <div className="col-md-6">
@@ -4910,58 +5038,109 @@ const CmSkuDetail: React.FC = () => {
                       />
                       {editSkuErrors.skuDescription && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.skuDescription}</div>}
                     </div>
-                    {/* Formulation Reference text field - Read Only */}
+                    {/* Formulation Reference text field - Editable */}
                     <div className="col-md-6">
                       <label>Formulation Reference</label>
                       <input
                         type="text"
                         className="form-control"
                         value={editSkuData.formulationReference}
-                        readOnly
-                        style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                        onChange={e => setEditSkuData({ ...editSkuData, formulationReference: e.target.value })}
+                        disabled={editSkuLoading}
                       />
                     </div>
-                    {/* SKU Type radio buttons - Read Only */}
+                    {/* Do you want to add the reference SKU? checkbox */}
                     <div className="col-md-12">
-                      <label>SKU Type</label>
-                      <div style={{ marginTop: '8px' }}>
-                        <div style={{ display: 'flex', gap: '20px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: 0.6 }}>
-                            <input
-                              type="radio"
-                              name="editSkuType"
-                              value="internal"
-                              checked={editSkuData.skuType === 'internal'}
-                              disabled={true}
-                              style={{ marginRight: '8px' }}
-                            />
-                            <span style={{ fontSize: '14px', fontWeight: '500' }}>Internal</span>
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0, opacity: 0.6 }}>
-                            <input
-                              type="radio"
-                              name="editSkuType"
-                              value="external"
-                              checked={editSkuData.skuType === 'external'}
-                              disabled={true}
-                              style={{ marginRight: '8px' }}
-                            />
-                            <span style={{ fontSize: '14px', fontWeight: '500' }}>External</span>
-                          </label>
-                        </div>
-                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={editShowReferenceSku}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              // Show confirmation modal when checking
+                              setShowReferenceSkuConfirmModal(true);
+                            } else {
+                              // Reset reference SKU fields when unchecking
+                              setEditShowReferenceSku(false);
+                              setEditSkuContractor('');
+                              setEditSkuReference('');
+                              setEditSelectedSkuComponents([]);
+                              setShowEditComponentTable(false);
+                              setEditReferenceSkuOptions([]);
+                            }
+                          }}
+                          disabled={editSkuLoading}
+                          style={{ marginRight: '8px' }}
+                        />
+                        <span style={{ fontSize: '14px', fontWeight: '500' }}>Do you want to add the reference SKU?</span>
+                      </label>
                     </div>
-                    {/* Conditional fields based on SKU Type - Read Only */}
-                    {editSkuData.skuType === 'internal' && (
+
+                    {/* Reference SKU section - only show if checkbox is checked */}
+                    {editShowReferenceSku && (
+                      <>
+                        {/* SKU Type radio buttons - Editable */}
+                        <div className="col-md-12">
+                          <label>Reference SKU</label>
+                          <div style={{ marginTop: '8px' }}>
+                            <div style={{ display: 'flex', gap: '20px' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0 }}>
+                                <input
+                                  type="radio"
+                                  name="editSkuType"
+                                  value="internal"
+                                  checked={editSkuData.skuType === 'internal'}
+                                  onChange={e => {
+                                    setEditSkuData({ ...editSkuData, skuType: e.target.value });
+                                    // Reset reference SKU fields when changing SKU type
+                                    setEditSkuContractor('');
+                                    setEditSkuReference('');
+                                    setEditSelectedSkuComponents([]);
+                                    setShowEditComponentTable(false);
+                                    setEditReferenceSkuOptions([]);
+                                  }}
+                                  disabled={editSkuLoading}
+                                  style={{ marginRight: '8px' }}
+                                />
+                                <span style={{ fontSize: '14px', fontWeight: '500' }}>Internal</span>
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0 }}>
+                                <input
+                                  type="radio"
+                                  name="editSkuType"
+                                  value="external"
+                                  checked={editSkuData.skuType === 'external'}
+                                  onChange={e => {
+                                    setEditSkuData({ ...editSkuData, skuType: e.target.value });
+                                    // Reset reference SKU fields when changing SKU type
+                                    setEditSkuContractor('');
+                                    setEditSkuReference('');
+                                    setEditSelectedSkuComponents([]);
+                                    setShowEditComponentTable(false);
+                                    setEditReferenceSkuOptions([]);
+                                  }}
+                                  disabled={editSkuLoading}
+                                  style={{ marginRight: '8px' }}
+                                />
+                                <span style={{ fontSize: '14px', fontWeight: '500' }}>External</span>
+                              </label>
+                            </div>
+                          </div>
+                          {editSkuErrors.skuType && <div className="invalid-feedback" style={{ color: 'red', display: 'block' }}>{editSkuErrors.skuType}</div>}
+                        </div>
+                      </>
+                    )}
+                    {/* Conditional fields based on SKU Type - Editable (only show if checkbox is checked) */}
+                    {editShowReferenceSku && editSkuData.skuType === 'internal' && (
                       <>
                         <div className="col-md-6">
                           <label>Reference SKU</label>
                           <input
                             type="text"
                             className="form-control"
-                            value={editSkuData.skuReference}
-                            readOnly
-                            style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                            value={editSkuReference}
+                            onChange={(e) => setEditSkuReference(e.target.value)}
+                            disabled={editSkuLoading}
                           />
                         </div>
                         <div className="col-md-6">
@@ -4970,24 +5149,69 @@ const CmSkuDetail: React.FC = () => {
                             type="text"
                             className="form-control"
                             value={editSkuData.skuNameSite}
-                            readOnly
-                            style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                            onChange={(e) => setEditSkuData({ ...editSkuData, skuNameSite: e.target.value })}
+                            disabled={editSkuLoading}
                           />
                         </div>
                       </>
                     )}
-                    {editSkuData.skuType === 'external' && (
-                      <div className="col-md-6">
-                        <label>Reference SKU</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={editSkuData.skuReference}
-                          readOnly
-                          style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
-                        />
-                      </div>
+                    {editShowReferenceSku && editSkuData.skuType === 'external' && (
+                      <>
+                        <div className="col-md-6">
+                          <label>3PM</label>
+                          <select
+                            className="form-control"
+                            value={editSkuContractor}
+                            onChange={(e) => {
+                              setEditSkuContractor(e.target.value);
+                              setEditSkuReference('');
+                              setEditSelectedSkuComponents([]);
+                              setShowEditComponentTable(false);
+                              if (e.target.value) {
+                                fetchEditReferenceSkuOptions(editSkuData.period, e.target.value);
+                              } else {
+                                setEditReferenceSkuOptions([]);
+                              }
+                            }}
+                            disabled={editSkuLoading}
+                          >
+                            <option value="">Select 3PM</option>
+                            {threePmOptions.map(option => (
+                              <option key={option.cm_code} value={option.cm_code}>
+                                {option.cm_code} - {option.cm_description || ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-md-6">
+                          <label>Reference SKU</label>
+                          <select
+                            className="form-control"
+                            value={editSkuReference}
+                            onChange={(e) => {
+                              setEditSkuReference(e.target.value);
+                              if (e.target.value) {
+                                // Fetch component details for the selected reference SKU
+                                fetchComponentDetails(e.target.value);
+                              } else {
+                                setEditSelectedSkuComponents([]);
+                                setShowEditComponentTable(false);
+                              }
+                            }}
+                            disabled={editSkuLoading || !editSkuContractor || editReferenceSkuLoading}
+                          >
+                            <option value="">Select Reference SKU</option>
+                            {editReferenceSkuOptions.map(option => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
                     )}
+                    
+
                     
                     {/* Component Table for External SKU */}
                     {editSkuData.skuType === 'external' && showEditComponentTable && editSelectedSkuComponents.length > 0 && (
@@ -5118,6 +5342,139 @@ const CmSkuDetail: React.FC = () => {
                   disabled={editSkuLoading}
                 >
                   {editSkuLoading ? 'Updating...' : 'Update'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reference SKU Confirmation Modal */}
+      {showReferenceSkuConfirmModal && (
+        <div className="modal fade show" style={{ display: 'block', background: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '500px' }}>
+            <div className="modal-content" style={{ 
+              borderRadius: '12px', 
+              border: 'none',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+            }}>
+              <div className="modal-header" style={{ 
+                backgroundColor: '#30ea03', 
+                color: '#000', 
+                borderBottom: '2px solid #000', 
+                alignItems: 'center',
+                padding: '20px 30px',
+                borderRadius: '12px 12px 0 0'
+              }}>
+                <h5 className="modal-title" style={{ 
+                  color: '#000', 
+                  fontWeight: 700, 
+                  flex: 1,
+                  fontSize: '18px',
+                  margin: 0
+                }}>
+                  <i className="ri-warning-line" style={{ marginRight: '10px', fontSize: '20px' }} />
+                  Warning
+                </h5>
+                <button
+                  type="button"
+                  onClick={handleReferenceSkuCancel}
+                  aria-label="Close"
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: '#000', 
+                    fontSize: 28, 
+                    fontWeight: 900, 
+                    lineHeight: 1, 
+                    cursor: 'pointer', 
+                    marginLeft: 8,
+                    padding: '0',
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%'
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="modal-body" style={{ 
+                background: '#fff',
+                padding: '30px'
+              }}>
+                <div style={{ 
+                  textAlign: 'center',
+                  marginBottom: '20px'
+                }}>
+                  <i className="ri-error-warning-line" style={{ 
+                    fontSize: '48px', 
+                    color: '#ffc107',
+                    marginBottom: '15px',
+                    display: 'block'
+                  }} />
+                  <h6 style={{ 
+                    color: '#333', 
+                    fontWeight: '600',
+                    marginBottom: '15px',
+                    fontSize: '16px'
+                  }}>
+                    Component Update Warning
+                  </h6>
+                  <p style={{ 
+                    color: '#666', 
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                    margin: 0
+                  }}>
+                    If you will update the component, all existing components for that SKU will get removed.
+                  </p>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ 
+                background: '#fff', 
+                borderTop: '1px solid #e9ecef',
+                padding: '20px 30px',
+                borderRadius: '0 0 12px 12px',
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '15px'
+              }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleReferenceSkuCancel}
+                  style={{ 
+                    backgroundColor: '#6c757d', 
+                    border: 'none', 
+                    color: '#fff', 
+                    padding: '10px 20px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    minWidth: '100px'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleReferenceSkuConfirm}
+                  style={{ 
+                    backgroundColor: '#30ea03', 
+                    border: 'none', 
+                    color: '#000', 
+                    padding: '10px 20px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    minWidth: '100px'
+                  }}
+                >
+                  Continue
                 </button>
               </div>
             </div>
