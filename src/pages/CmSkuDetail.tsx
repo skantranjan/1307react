@@ -1061,9 +1061,36 @@ const CmSkuDetail: React.FC = () => {
   const [referenceSkuOptions, setReferenceSkuOptions] = useState<Array<{value: string, label: string}>>([]);
   const [referenceSkuLoading, setReferenceSkuLoading] = useState(false);
   // const [addSkuQty, setAddSkuQty] = useState(''); // Hidden for now, may be used later
-  const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', server: '' });
+  const [addSkuErrors, setAddSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: '' });
   const [addSkuSuccess, setAddSkuSuccess] = useState('');
   const [addSkuLoading, setAddSkuLoading] = useState(false);
+
+  // ===== CUSTOM TOOLTIP STATE =====
+  const [tooltipInfo, setTooltipInfo] = useState<{
+    show: boolean;
+    text: string;
+    x: number;
+    y: number;
+  }>({
+    show: false,
+    text: '',
+    x: 0,
+    y: 0
+  });
+
+  // Tooltip handlers
+  const showTooltip = (text: string, event: React.MouseEvent) => {
+    setTooltipInfo({
+      show: true,
+      text,
+      x: event.clientX,
+      y: event.clientY
+    });
+  };
+
+  const hideTooltip = () => {
+    setTooltipInfo(prev => ({ ...prev, show: false }));
+  };
   
   // 3PM dropdown options state
   const [threePmOptions, setThreePmOptions] = useState<Array<{cm_code: string, cm_description?: string}>>([]);
@@ -1289,10 +1316,34 @@ const CmSkuDetail: React.FC = () => {
   const handleAddSkuSave = async () => {
     // ===== CLIENT-SIDE VALIDATION =====
     // Validate required fields before making API call
-    let errors = { sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', server: '' };
+    let errors = { sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: '' };
     if (!addSku.trim()) errors.sku = 'A value is required for SKU code';
     if (!addSkuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
-    if (!addSkuPeriod) errors.period = 'A value is required for the Period';
+    if (!addSkuPeriod) errors.period = 'A value is required for the Reporting Period';
+    
+    // Validate SKU Type selection when reference SKU checkbox is checked
+    if (showSkuTypeSection && !addSkuType) {
+      errors.skuType = 'Please select either Internal or External SKU type';
+    }
+    
+    // Validate mandatory fields based on SKU type
+    if (showSkuTypeSection && addSkuType === 'internal') {
+      // For Internal: Reference SKU and Site are mandatory
+      if (!addSkuReference.trim()) {
+        errors.referenceSku = 'Reference SKU is required for Internal SKU type';
+      }
+      if (!addSkuNameSite.trim()) {
+        errors.site = 'Site is required for Internal SKU type';
+      }
+    } else if (showSkuTypeSection && addSkuType === 'external') {
+      // For External: 3PM and Reference SKU are mandatory
+      if (!addSkuContractor.trim()) {
+        errors.contractor = '3PM is required for External SKU type';
+      }
+      if (!addSkuReference.trim()) {
+        errors.referenceSku = 'Reference SKU is required for External SKU type';
+      }
+    }
     
     // Validate that SKU Code and Reference SKU are not the same
     if (showSkuTypeSection && addSkuReference.trim() && addSku.trim().toLowerCase() === addSkuReference.trim().toLowerCase()) {
@@ -1303,7 +1354,7 @@ const CmSkuDetail: React.FC = () => {
     setAddSkuErrors(errors);
     setAddSkuSuccess('');
     // Only block submission for actual errors, not informational messages
-    if (errors.sku || errors.skuDescription || errors.period) return;
+    if (errors.sku || errors.skuDescription || errors.period || errors.skuType || errors.referenceSku || errors.site || errors.contractor) return;
 
     // ===== API CALL PREPARATION =====
     setAddSkuLoading(true);  // Show loading state
@@ -1414,7 +1465,7 @@ const CmSkuDetail: React.FC = () => {
       } else {
         setAddSkuSuccess('SKU added successfully!');
       }
-      setAddSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', server: '' });
+              setAddSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: '' });
       // Call audit log API
       const auditResult = await apiPost('/sku-auditlog/add', {
         sku_code: addSku,
@@ -1475,7 +1526,7 @@ const CmSkuDetail: React.FC = () => {
     qty: '',
     dualSource: '',
   });
-  const [editSkuErrors, setEditSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
+  const [editSkuErrors, setEditSkuErrors] = useState({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: '' });
   const [editSkuSuccess, setEditSkuSuccess] = useState('');
   const [editSkuLoading, setEditSkuLoading] = useState(false);
   
@@ -1620,9 +1671,9 @@ const CmSkuDetail: React.FC = () => {
       dualSource: sku.dual_source_sku || '',
     });
     
-    // Initialize edit reference SKU state
-    setEditSkuContractor(sku.cm_code || '');
-    setEditSkuReference(sku.sku_reference || '');
+    // Initialize edit reference SKU state - start with empty values
+    setEditSkuContractor('');
+    setEditSkuReference('');
     setEditReferenceSkuOptions([]);
     setEditSelectedSkuComponents([]);
     setShowEditComponentTable(false);
@@ -1640,7 +1691,7 @@ const CmSkuDetail: React.FC = () => {
       fetchThreePmOptions(sku.cm_code);
     }
     
-    setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
+    setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: '' });
     setEditSkuSuccess('');
     setShowEditSkuModal(true);
   };
@@ -1648,22 +1699,33 @@ const CmSkuDetail: React.FC = () => {
   // Edit SKU handler
   const handleEditSkuUpdate = async () => {
     // Client-side validation
-    let errors = { sku: '', skuDescription: '', period: '', skuType: '', server: '' };
+    let errors = { sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: '' };
     if (!editSkuData.sku.trim()) errors.sku = 'A value is required for SKU code';
     if (!editSkuData.skuDescription.trim()) errors.skuDescription = 'A value is required for SKU description';
-    if (!editSkuData.period) errors.period = 'A value is required for the Period';
+    if (!editSkuData.period) errors.period = 'A value is required for the Reporting Period';
     
-    // Validate reference SKU based on type
-    if (editSkuData.skuType === 'external' && !editSkuContractor) {
-      errors.skuType = '3PM is required for External SKU type';
-    }
-    if (editSkuData.skuType === 'external' && editSkuContractor && !editSkuReference) {
-      errors.skuType = 'Reference SKU is required for External SKU type';
+    // Validate mandatory fields based on SKU type when reference SKU checkbox is checked
+    if (editShowReferenceSku && editSkuData.skuType === 'internal') {
+      // For Internal: Reference SKU and Site are mandatory
+      if (!editSkuReference.trim()) {
+        errors.referenceSku = 'Reference SKU is required for Internal SKU type';
+      }
+      if (!editSkuData.skuNameSite.trim()) {
+        errors.site = 'Site is required for Internal SKU type';
+      }
+    } else if (editShowReferenceSku && editSkuData.skuType === 'external') {
+      // For External: 3PM and Reference SKU are mandatory
+      if (!editSkuContractor.trim()) {
+        errors.contractor = '3PM is required for External SKU type';
+      }
+      if (!editSkuReference.trim()) {
+        errors.referenceSku = 'Reference SKU is required for External SKU type';
+      }
     }
     
     setEditSkuErrors(errors);
     setEditSkuSuccess('');
-    if (errors.sku || errors.skuDescription || errors.period || errors.skuType) return;
+    if (errors.sku || errors.skuDescription || errors.period || errors.skuType || errors.referenceSku || errors.site || errors.contractor) return;
 
     // PUT to API
     setEditSkuLoading(true);
@@ -1689,7 +1751,7 @@ const CmSkuDetail: React.FC = () => {
 
       const result = await apiPut(`/sku-details/update/${encodeURIComponent(editSkuData.sku)}`, updateData);
       if (!result.success) {
-        setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: result.message || 'Server validation failed' });
+        setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: result.message || 'Server validation failed' });
         setEditSkuLoading(false);
         return;
       }
@@ -1706,7 +1768,7 @@ const CmSkuDetail: React.FC = () => {
       }
       
       setEditSkuSuccess(successMessage);
-      setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: '' });
+      setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: '' });
       // Call audit log API
       const auditResult = await apiPost('/sku-auditlog/add', {
         sku_code: editSkuData.sku,
@@ -1736,7 +1798,7 @@ const CmSkuDetail: React.FC = () => {
       }, 1200);
     } catch (err: any) {
       console.error('Edit SKU Update Error:', err);
-      setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', server: `Network or server error: ${err?.message || 'Unknown error'}` });
+              setEditSkuErrors({ sku: '', skuDescription: '', period: '', skuType: '', referenceSku: '', site: '', contractor: '', server: `Network or server error: ${err?.message || 'Unknown error'}` });
     } finally {
       setEditSkuLoading(false);
     }
@@ -2909,7 +2971,7 @@ const CmSkuDetail: React.FC = () => {
             <div className="filters">
               <ul>
                 <li>
-                  <div className="fBold">Period</div>
+                  <div className="fBold"> Reporting Period</div>
                   <div className="form-control">
                     <select
                       value={selectedYears.length > 0 ? selectedYears[0] : ''}
@@ -2925,7 +2987,7 @@ const CmSkuDetail: React.FC = () => {
                       }}
                       disabled={years.length === 0}
                     >
-                      <option value="">Select Period</option>
+                                                <option value="">Select Reporting Period</option>
                       {years.map((year, index) => (
                         <option key={year.id} value={year.id}>
                           {year.period}
@@ -2996,7 +3058,7 @@ const CmSkuDetail: React.FC = () => {
                     <button
                       className="btnCommon btnGreen filterButtons"
                       style={{ minWidth: 110, fontWeight: 600, marginRight: 0, marginTop: 0, fontSize: '13px', padding: '8px 12px' }}
-                      onClick={() => setShowCopyDataModal(true)}
+                      onClick={() => navigate('/upload-data')}
                     >
                       <span>Copy Data</span> <i className="ri-file-copy-line"></i>
                     </button>
@@ -3023,7 +3085,7 @@ const CmSkuDetail: React.FC = () => {
                         padding: '8px 12px'
                       }}
                       onClick={() => {
-                        navigate(`/sedforapproval?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
+                        navigate(`/generate-pdf?cmCode=${encodeURIComponent(cmCode || '')}&cmDescription=${encodeURIComponent(cmDescription)}`);
                       }}
                     >
                       <i className="ri-file-pdf-2-line" style={{ fontSize: 14, marginRight: '4px' }}></i>
@@ -4466,9 +4528,30 @@ const CmSkuDetail: React.FC = () => {
               <div className="modal-body" style={{ background: '#fff' }}>
                 <div className="container-fluid">
                   <div className="row g-3">
-                    {/* Period dropdown */}
+                    {/* Reporting Period dropdown */}
                     <div className="col-md-6">
-                      <label>Period <span style={{ color: 'red' }}>*</span></label>
+                      <label>
+                        Reporting Period <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Select the reporting period for this SKU entry", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <div style={{ position: 'relative' }}>
                                                         <select
                                   className={`form-control${addSkuErrors.period ? ' is-invalid' : ''}`}
@@ -4508,7 +4591,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU text field */}
                     <div className="col-md-6">
-                      <label>SKU Code <span style={{ color: 'red' }}>*</span></label>
+                      <label>
+                        SKU Code <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Enter the unique SKU (Stock Keeping Unit) code identifier", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input
                         type="text"
                         className={`form-control${addSkuErrors.sku ? ' is-invalid' : ''}`}
@@ -4527,7 +4631,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU Description text field */}
                     <div className="col-md-6">
-                      <label>SKU Description <span style={{ color: 'red' }}>*</span></label>
+                      <label>
+                        SKU Description <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Provide a detailed description of the SKU", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input
                         type="text"
                         className={`form-control${addSkuErrors.skuDescription ? ' is-invalid' : ''}`}
@@ -4539,7 +4664,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Formulation Reference text field */}
                     <div className="col-md-6">
-                      <label>Formulation Reference</label>
+                      <label>
+                        Formulation Reference
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Enter the formulation reference for this SKU (optional)", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -4560,6 +4706,25 @@ const CmSkuDetail: React.FC = () => {
                           style={{ marginRight: '8px' }}
                         />
                         <span style={{ fontSize: '14px', fontWeight: '500' }}>Do you want to add the reference SKU?</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Check this box if you want to add a reference SKU for this entry", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
                       </label>
                     </div>
                     
@@ -4603,7 +4768,28 @@ const CmSkuDetail: React.FC = () => {
                         {addSkuType === 'internal' && (
                           <>
                             <div className="col-md-6">
-                              <label>Reference SKU</label>
+                              <label>
+                                Reference SKU <span style={{ color: 'red' }}>*</span>
+                                <span 
+                                  style={{ 
+                                    marginLeft: '8px', 
+                                    cursor: 'pointer', 
+                                    color: '#888',
+                                    fontSize: '16px',
+                                    transition: 'color 0.2s ease'
+                                  }} 
+                                  onMouseEnter={(e) => {
+                                    showTooltip("Enter the reference SKU code for internal SKU type", e);
+                                    e.currentTarget.style.color = '#30ea03';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    hideTooltip();
+                                    e.currentTarget.style.color = '#888';
+                                  }}
+                                >
+                                  <i className="ri-information-line"></i>
+                                </span>
+                              </label>
                               <input
                                 type="text"
                                 className={`form-control${addSkuErrors.referenceSku ? ' is-invalid' : ''}`}
@@ -4618,10 +4804,31 @@ const CmSkuDetail: React.FC = () => {
                               {addSkuErrors.referenceSku && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.referenceSku}</div>}
                             </div>
                             <div className="col-md-6">
-                              {/* <label> Site</label> */}
+                              <label>
+                                Site <span style={{ color: 'red' }}>*</span>
+                                <span 
+                                  style={{ 
+                                    marginLeft: '8px', 
+                                    cursor: 'pointer', 
+                                    color: '#888',
+                                    fontSize: '16px',
+                                    transition: 'color 0.2s ease'
+                                  }} 
+                                  onMouseEnter={(e) => {
+                                    showTooltip("Select the site location for this internal SKU", e);
+                                    e.currentTarget.style.color = '#30ea03';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    hideTooltip();
+                                    e.currentTarget.style.color = '#888';
+                                  }}
+                                >
+                                  <i className="ri-information-line"></i>
+                                </span>
+                              </label>
                               <div style={{ position: 'relative' }}>
                                 <select
-                                  className="form-control"
+                                  className={`form-control${addSkuErrors.site ? ' is-invalid' : ''}`}
                                   value={addSkuNameSite}
                                   onChange={e => setAddSkuNameSite(e.target.value)}
                                   disabled={addSkuLoading}
@@ -4634,6 +4841,7 @@ const CmSkuDetail: React.FC = () => {
                                   <option value="Montreal">Montreal</option>
                                   <option value="Guyana">Guyana</option>
                                 </select>
+                                {addSkuErrors.site && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.site}</div>}
                                 <i 
                                   className="ri-arrow-down-s-line" 
                                   style={{
@@ -4655,10 +4863,31 @@ const CmSkuDetail: React.FC = () => {
                           <>
                             {/* Section 1: 3PM Dropdown */}
                             <div className="col-md-6">
-                              <label>3PM</label>
+                              <label>
+                                3PM <span style={{ color: 'red' }}>*</span>
+                                <span 
+                                  style={{ 
+                                    marginLeft: '8px', 
+                                    cursor: 'pointer', 
+                                    color: '#888',
+                                    fontSize: '16px',
+                                    transition: 'color 0.2s ease'
+                                  }} 
+                                  onMouseEnter={(e) => {
+                                    showTooltip("Select the Third Party Manufacturer (3PM) for this external SKU", e);
+                                    e.currentTarget.style.color = '#30ea03';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    hideTooltip();
+                                    e.currentTarget.style.color = '#888';
+                                  }}
+                                >
+                                  <i className="ri-information-line"></i>
+                                </span>
+                              </label>
                               <div style={{ position: 'relative' }}>
                                 <select
-                                  className="form-control"
+                                  className={`form-control${addSkuErrors.contractor ? ' is-invalid' : ''}`}
                                   value={addSkuContractor}
                                   onChange={e => {
                                     const selectedCmCode = e.target.value;
@@ -4690,6 +4919,7 @@ const CmSkuDetail: React.FC = () => {
                                     ))
                                   )}
                                 </select>
+                                {addSkuErrors.contractor && <div className="invalid-feedback" style={{ color: 'red' }}>{addSkuErrors.contractor}</div>}
                                 <i 
                                   className="ri-arrow-down-s-line" 
                                   style={{
@@ -4707,7 +4937,28 @@ const CmSkuDetail: React.FC = () => {
 
                             {/* Section 2: Reference SKU Dropdown */}
                             <div className="col-md-6">
-                              <label>Reference SKU</label>
+                              <label>
+                                Reference SKU <span style={{ color: 'red' }}>*</span>
+                                <span 
+                                  style={{ 
+                                    marginLeft: '8px', 
+                                    cursor: 'pointer', 
+                                    color: '#888',
+                                    fontSize: '16px',
+                                    transition: 'color 0.2s ease'
+                                  }} 
+                                  onMouseEnter={(e) => {
+                                    showTooltip("Select the reference SKU from the chosen 3PM for this external SKU", e);
+                                    e.currentTarget.style.color = '#30ea03';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    hideTooltip();
+                                    e.currentTarget.style.color = '#888';
+                                  }}
+                                >
+                                  <i className="ri-information-line"></i>
+                                </span>
+                              </label>
                               <div style={{ position: 'relative' }}>
                                 <select
                                   className={`form-control${addSkuErrors.referenceSku ? ' is-invalid' : ''}`}
@@ -4996,9 +5247,30 @@ const CmSkuDetail: React.FC = () => {
               <div className="modal-body" style={{ background: '#fff' }}>
                 <div className="container-fluid">
                   <div className="row g-3">
-                    {/* Period */}
+                    {/* Reporting Period */}
                     <div className="col-md-6">
-                      <label>Period <span style={{ color: 'red' }}>*</span></label>
+                      <label>
+                        Reporting Period <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("The reporting period for this SKU (read-only)", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <select
                         className="form-control"
                         value={editSkuData.period}
@@ -5017,7 +5289,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU */}
                     <div className="col-md-6">
-                      <label>SKU <span style={{ color: 'red' }}>*</span></label>
+                      <label>
+                        SKU <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("The unique SKU code identifier (read-only)", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -5028,7 +5321,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* SKU Description */}
                     <div className="col-md-6">
-                      <label>SKU Description <span style={{ color: 'red' }}>*</span></label>
+                      <label>
+                        SKU Description <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Provide a detailed description of the SKU", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input
                         type="text"
                         className={`form-control${editSkuErrors.skuDescription ? ' is-invalid' : ''}`}
@@ -5040,7 +5354,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Formulation Reference text field - Editable */}
                     <div className="col-md-6">
-                      <label>Formulation Reference</label>
+                      <label>
+                        Formulation Reference
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Enter the formulation reference for this SKU (optional)", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -5072,7 +5407,26 @@ const CmSkuDetail: React.FC = () => {
                           disabled={editSkuLoading}
                           style={{ marginRight: '8px' }}
                         />
-                        <span style={{ fontSize: '14px', fontWeight: '500' }}>Do you want to add the reference SKU?</span>
+                        <span style={{ fontSize: '14px', fontWeight: '500' }}>Do you want to add/edit the reference SKU?</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Check this box if you want to add a reference SKU for this entry", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
                       </label>
                     </div>
 
@@ -5081,7 +5435,28 @@ const CmSkuDetail: React.FC = () => {
                       <>
                         {/* SKU Type radio buttons - Editable */}
                         <div className="col-md-12">
-                          <label>Reference SKU</label>
+                          <label>
+                            Reference SKU
+                            <span 
+                              style={{ 
+                                marginLeft: '8px', 
+                                cursor: 'pointer', 
+                                color: '#888',
+                                fontSize: '16px',
+                                transition: 'color 0.2s ease'
+                              }} 
+                              onMouseEnter={(e) => {
+                                showTooltip("Select the reference SKU type for this entry", e);
+                                e.currentTarget.style.color = '#30ea03';
+                              }}
+                              onMouseLeave={(e) => {
+                                hideTooltip();
+                                e.currentTarget.style.color = '#888';
+                              }}
+                            >
+                              <i className="ri-information-line"></i>
+                            </span>
+                          </label>
                           <div style={{ marginTop: '8px' }}>
                             <div style={{ display: 'flex', gap: '20px' }}>
                               <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0 }}>
@@ -5134,33 +5509,119 @@ const CmSkuDetail: React.FC = () => {
                     {editShowReferenceSku && editSkuData.skuType === 'internal' && (
                       <>
                         <div className="col-md-6">
-                          <label>Reference SKU</label>
+                          <label>
+                            Reference SKU <span style={{ color: 'red' }}>*</span>
+                            <span 
+                              style={{ 
+                                marginLeft: '8px', 
+                                cursor: 'pointer', 
+                                color: '#888',
+                                fontSize: '16px',
+                                transition: 'color 0.2s ease'
+                              }} 
+                              onMouseEnter={(e) => {
+                                showTooltip("Enter the reference SKU code for internal SKU type", e);
+                                e.currentTarget.style.color = '#30ea03';
+                              }}
+                              onMouseLeave={(e) => {
+                                hideTooltip();
+                                e.currentTarget.style.color = '#888';
+                              }}
+                            >
+                              <i className="ri-information-line"></i>
+                            </span>
+                          </label>
                           <input
                             type="text"
-                            className="form-control"
+                            className={`form-control${editSkuErrors.referenceSku ? ' is-invalid' : ''}`}
                             value={editSkuReference}
                             onChange={(e) => setEditSkuReference(e.target.value)}
                             disabled={editSkuLoading}
                           />
+                          {editSkuErrors.referenceSku && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.referenceSku}</div>}
                         </div>
                         <div className="col-md-6">
-                          <label>Name Site</label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={editSkuData.skuNameSite}
-                            onChange={(e) => setEditSkuData({ ...editSkuData, skuNameSite: e.target.value })}
-                            disabled={editSkuLoading}
-                          />
+                          <label>
+                            Name Site <span style={{ color: 'red' }}>*</span>
+                            <span 
+                              style={{ 
+                                marginLeft: '8px', 
+                                cursor: 'pointer', 
+                                color: '#888',
+                                fontSize: '16px',
+                                transition: 'color 0.2s ease'
+                              }} 
+                              onMouseEnter={(e) => {
+                                showTooltip("Select the site name for this internal SKU", e);
+                                e.currentTarget.style.color = '#30ea03';
+                              }}
+                              onMouseLeave={(e) => {
+                                hideTooltip();
+                                e.currentTarget.style.color = '#888';
+                              }}
+                            >
+                              <i className="ri-information-line"></i>
+                            </span>
+                          </label>
+                          <div style={{ position: 'relative' }}>
+                            <select
+                              className={`form-control${editSkuErrors.site ? ' is-invalid' : ''}`}
+                              value={editSkuData.skuNameSite}
+                              onChange={(e) => setEditSkuData({ ...editSkuData, skuNameSite: e.target.value })}
+                              disabled={editSkuLoading}
+                              style={{ 
+                                appearance: 'none',
+                                paddingRight: '30px'
+                              }}
+                            >
+                              <option value="">Select Site</option>
+                              <option value="Montreal">Montreal</option>
+                              <option value="Guyana">Guyana</option>
+                            </select>
+                            {editSkuErrors.site && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.site}</div>}
+                            <i 
+                              className="ri-arrow-down-s-line" 
+                              style={{
+                                position: 'absolute',
+                                right: '10px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                pointerEvents: 'none',
+                                color: '#666',
+                                fontSize: '16px'
+                              }}
+                            />
+                          </div>
                         </div>
                       </>
                     )}
                     {editShowReferenceSku && editSkuData.skuType === 'external' && (
                       <>
                         <div className="col-md-6">
-                          <label>3PM</label>
+                          <label>
+                            3PM <span style={{ color: 'red' }}>*</span>
+                            <span 
+                              style={{ 
+                                marginLeft: '8px', 
+                                cursor: 'pointer', 
+                                color: '#888',
+                                fontSize: '16px',
+                                transition: 'color 0.2s ease'
+                              }} 
+                              onMouseEnter={(e) => {
+                                showTooltip("Select the Third Party Manufacturer (3PM) for this external SKU", e);
+                                e.currentTarget.style.color = '#30ea03';
+                              }}
+                              onMouseLeave={(e) => {
+                                hideTooltip();
+                                e.currentTarget.style.color = '#888';
+                              }}
+                            >
+                              <i className="ri-information-line"></i>
+                            </span>
+                          </label>
                           <select
-                            className="form-control"
+                            className={`form-control${editSkuErrors.contractor ? ' is-invalid' : ''}`}
                             value={editSkuContractor}
                             onChange={(e) => {
                               setEditSkuContractor(e.target.value);
@@ -5182,11 +5643,33 @@ const CmSkuDetail: React.FC = () => {
                               </option>
                             ))}
                           </select>
+                          {editSkuErrors.contractor && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.contractor}</div>}
                         </div>
                         <div className="col-md-6">
-                          <label>Reference SKU</label>
+                          <label>
+                            Reference SKU <span style={{ color: 'red' }}>*</span>
+                            <span 
+                              style={{ 
+                                marginLeft: '8px', 
+                                cursor: 'pointer', 
+                                color: '#888',
+                                fontSize: '16px',
+                                transition: 'color 0.2s ease'
+                              }} 
+                              onMouseEnter={(e) => {
+                                showTooltip("Select the reference SKU from the chosen 3PM for this external SKU", e);
+                                e.currentTarget.style.color = '#30ea03';
+                              }}
+                              onMouseLeave={(e) => {
+                                hideTooltip();
+                                e.currentTarget.style.color = '#888';
+                              }}
+                            >
+                              <i className="ri-information-line"></i>
+                            </span>
+                          </label>
                           <select
-                            className="form-control"
+                            className={`form-control${editSkuErrors.referenceSku ? ' is-invalid' : ''}`}
                             value={editSkuReference}
                             onChange={(e) => {
                               setEditSkuReference(e.target.value);
@@ -5207,11 +5690,35 @@ const CmSkuDetail: React.FC = () => {
                               </option>
                             ))}
                           </select>
+                          {editSkuErrors.referenceSku && <div className="invalid-feedback" style={{ color: 'red' }}>{editSkuErrors.referenceSku}</div>}
                         </div>
                       </>
                     )}
                     
-
+                    {/* Warning message for Edit SKU Reference SKU */}
+                    {editShowReferenceSku && (
+                      <div className="col-md-12">
+                        <div style={{ 
+                          backgroundColor: '#fff3cd', 
+                          border: '1px solid #ffeaa7', 
+                          borderRadius: '6px', 
+                          padding: '12px 16px', 
+                          marginTop: '16px',
+                          marginBottom: '16px'
+                        }}>
+                          <div style={{ 
+                            color: '#d63031', 
+                            fontSize: '13px', 
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}>
+                            <i className="ri-error-warning-line" style={{ marginRight: '8px', fontSize: '16px' }}></i>
+                            If you will edit, all the existing components will be removed and new components with referenced SKU will be added
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Component Table for External SKU */}
                     {editSkuData.skuType === 'external' && showEditComponentTable && editSelectedSkuComponents.length > 0 && (
@@ -5562,7 +6069,26 @@ const CmSkuDetail: React.FC = () => {
                         display: 'block',
                         fontSize: '14px'
                       }}>
-                        Component Type <span style={{ color: 'red' }}>*</span> <InfoIcon info="Please select either Packaging or Raw Material for each SKU component" />
+                        Component Type <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Please select either Packaging or Raw Material for each SKU component", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
                       </label>
                       <select
                         className="form-control select-with-icon"
@@ -5586,7 +6112,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Component Code (Free text) */}
                     <div className="col-md-6" style={{ position: 'relative' }}>
-                      <label>Component Code <span style={{ color: 'red' }}>*</span> <InfoIcon info="Enter the unique code for this component." /></label>
+                      <label>
+                        Component Code <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Enter the unique code for this component", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input 
                         type="text" 
                         className="form-control" 
@@ -5650,25 +6197,109 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Component Description (Free text) */}
                     <div className="col-md-6">
-                      <label>Component Description <span style={{ color: 'red' }}>*</span> <InfoIcon info="Describe the component in detail." /></label>
+                      <label>
+                        Component Description <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Describe the component in detail", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input type="text" className="form-control" value={addComponentData.componentDescription} onChange={e => setAddComponentData({ ...addComponentData, componentDescription: e.target.value })} />
                       {addComponentErrors.componentDescription && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.componentDescription}</div>}
                     </div>
                     {/* Component validity date - From (Date) */}
                     <div className="col-md-6">
-                      <label>Component validity date - From <InfoIcon info="Select the start date for this component's validity." /></label>
+                      <label>
+                        Component validity date - From
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Select the start date for this component's validity", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input type="date" className="form-control" value={addComponentData.validityFrom} onChange={e => setAddComponentData({ ...addComponentData, validityFrom: e.target.value })} />
                       {addComponentErrors.validityFrom && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.validityFrom}</div>}
                     </div>
                     {/* Component validity date - To (Date) */}
                     <div className="col-md-6">
-                      <label>Component validity date - To <InfoIcon info="Select the end date for this component's validity." /></label>
+                      <label>
+                        Component validity date - To
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Select the end date for this component's validity", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input type="date" className="form-control" value={addComponentData.validityTo} onChange={e => setAddComponentData({ ...addComponentData, validityTo: e.target.value })} />
                       {addComponentErrors.validityTo && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.validityTo}</div>}
                     </div>
                     {/* Component Category (Input field) */}
                     <div className="col-md-6">
-                      <label>Component Category <InfoIcon info="Enter the category for this component." /></label>
+                      <label>
+                        Component Category
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Enter the category for this component", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
@@ -5680,13 +6311,55 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Component Quantity (Numeric) */}
                     <div className="col-md-6">
-                      <label>Component Quantity <span style={{ color: 'red' }}>*</span> <InfoIcon info="Enter the quantity of this component used." /></label>
+                      <label>
+                        Component Quantity <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Enter the quantity of this component used", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input type="number" className="form-control" value={addComponentData.componentQuantity} onChange={e => setAddComponentData({ ...addComponentData, componentQuantity: e.target.value })} />
                       {addComponentErrors.componentQuantity && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.componentQuantity}</div>}
                     </div>
                     {/* Component Unit of Measure (Drop-down list) */}
                     <div className="col-md-6">
-                      <label>Component Unit of Measure <span style={{ color: 'red' }}>*</span> <InfoIcon info="Select the unit of measure for the component quantity (e.g., PCS, KG)." /></label>
+                      <label>
+                        Component Unit of Measure <span style={{ color: 'red' }}>*</span>
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Select the unit of measure for the component quantity (e.g., PCS, KG)", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <select
                         className="form-control select-with-icon"
                         value={addComponentData.componentUnitOfMeasure}
@@ -5701,7 +6374,28 @@ const CmSkuDetail: React.FC = () => {
                     </div>
                     {/* Component Base Quantity (Numeric) */}
                     <div className="col-md-6">
-                      <label>Component Base Quantity <InfoIcon info="Enter the base quantity for this component (reference amount)." /></label>
+                      <label>
+                        Component Base Quantity
+                        <span 
+                          style={{ 
+                            marginLeft: '8px', 
+                            cursor: 'pointer', 
+                            color: '#888',
+                            fontSize: '16px',
+                            transition: 'color 0.2s ease'
+                          }} 
+                          onMouseEnter={(e) => {
+                            showTooltip("Enter the base quantity for this component (reference amount)", e);
+                            e.currentTarget.style.color = '#30ea03';
+                          }}
+                          onMouseLeave={(e) => {
+                            hideTooltip();
+                            e.currentTarget.style.color = '#888';
+                          }}
+                        >
+                          <i className="ri-information-line"></i>
+                        </span>
+                      </label>
                       <input type="number" className="form-control" value={addComponentData.componentBaseQuantity} onChange={e => setAddComponentData({ ...addComponentData, componentBaseQuantity: e.target.value })} />
                       {addComponentErrors.componentBaseQuantity && <div style={{ color: 'red', fontSize: 13 }}>{addComponentErrors.componentBaseQuantity}</div>}
                     </div>
@@ -5954,7 +6648,26 @@ const CmSkuDetail: React.FC = () => {
                               marginBottom: '8px',
                               display: 'block'
                             }}>
-                              Browse Files <InfoIcon info="Select files to upload for the selected categories." />
+                              Browse Files
+                              <span 
+                                style={{ 
+                                  marginLeft: '8px', 
+                                  cursor: 'pointer', 
+                                  color: '#888',
+                                  fontSize: '16px',
+                                  transition: 'color 0.2s ease'
+                                }} 
+                                onMouseEnter={(e) => {
+                                  showTooltip("Select files to upload for the selected categories", e);
+                                  e.currentTarget.style.color = '#30ea03';
+                                }}
+                                onMouseLeave={(e) => {
+                                  hideTooltip();
+                                  e.currentTarget.style.color = '#888';
+                                }}
+                              >
+                                <i className="ri-information-line"></i>
+                              </span>
                             </label>
                             <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
                               <input
@@ -6333,7 +7046,28 @@ const CmSkuDetail: React.FC = () => {
                 <div className="row">
                   {/* Component Type */}
                   <div className="col-md-6">
-                    <label>Component Type <InfoIcon info="Select the type of component." /></label>
+                    <label>
+                      Component Type
+                      <span 
+                        style={{ 
+                          marginLeft: '8px', 
+                          cursor: 'pointer', 
+                          color: '#888',
+                          fontSize: '16px',
+                          transition: 'color 0.2s ease'
+                        }} 
+                        onMouseEnter={(e) => {
+                          showTooltip("Select the type of component", e);
+                          e.currentTarget.style.color = '#30ea03';
+                        }}
+                        onMouseLeave={(e) => {
+                          hideTooltip();
+                          e.currentTarget.style.color = '#888';
+                        }}
+                      >
+                        <i className="ri-information-line"></i>
+                      </span>
+                    </label>
                     <select
                       value={editComponentData.componentType}
                       onChange={(e) => setEditComponentData({ ...editComponentData, componentType: e.target.value })}
@@ -6365,7 +7099,28 @@ const CmSkuDetail: React.FC = () => {
 
                   {/* Component Code */}
                   <div className="col-md-6">
-                    <label>Component Code <InfoIcon info="Enter the unique code for this component." /></label>
+                    <label>
+                      Component Code
+                      <span 
+                        style={{ 
+                          marginLeft: '8px', 
+                          cursor: 'pointer', 
+                          color: '#888',
+                          fontSize: '16px',
+                          transition: 'color 0.2s ease'
+                        }} 
+                        onMouseEnter={(e) => {
+                          showTooltip("Enter the unique code for this component", e);
+                          e.currentTarget.style.color = '#30ea03';
+                        }}
+                        onMouseLeave={(e) => {
+                          hideTooltip();
+                          e.currentTarget.style.color = '#888';
+                        }}
+                      >
+                        <i className="ri-information-line"></i>
+                      </span>
+                    </label>
                     <input
                       type="text"
                       value={editComponentData.componentCode}
@@ -8121,7 +8876,7 @@ const CmSkuDetail: React.FC = () => {
                             color: '#333',
                             fontSize: '14px'
                           }}>
-                            From Period <span style={{ color: 'red' }}>*</span>
+                            From Reporting Period <span style={{ color: 'red' }}>*</span>
                           </label>
                           <select
                             value={copyFromPeriod}
@@ -8136,7 +8891,7 @@ const CmSkuDetail: React.FC = () => {
                             }}
                             disabled={uploadLoading}
                           >
-                            <option value="">Select From Period</option>
+                            <option value="">Select From Reporting Period</option>
                             {years.map(year => (
                               <option key={year.id} value={year.id}>
                                 {year.period}
@@ -8152,7 +8907,7 @@ const CmSkuDetail: React.FC = () => {
                             color: '#333',
                             fontSize: '14px'
                           }}>
-                            To Period <span style={{ color: 'red' }}>*</span>
+                            To Reporting Period <span style={{ color: 'red' }}>*</span>
                           </label>
                           <select
                             value={copyToPeriod}
@@ -8167,7 +8922,7 @@ const CmSkuDetail: React.FC = () => {
                             }}
                             disabled={uploadLoading}
                           >
-                            <option value="">Select To Period</option>
+                            <option value="">Select To Reporting Period</option>
                             {years.map(year => (
                               <option key={year.id} value={year.id}>
                                 {year.period}
@@ -8339,6 +9094,46 @@ const CmSkuDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Custom Tooltip */}
+      {tooltipInfo.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: tooltipInfo.y - 10,
+            left: tooltipInfo.x + 10,
+            background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+            color: '#fff',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: '500',
+            maxWidth: '300px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 10000,
+            pointerEvents: 'none',
+            animation: 'tooltipFadeIn 0.2s ease-out',
+            lineHeight: '1.4',
+            whiteSpace: 'pre-wrap',
+            wordWrap: 'break-word'
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '-6px',
+            transform: 'translateY(-50%)',
+            width: 0,
+            height: 0,
+            borderTop: '6px solid transparent',
+            borderBottom: '6px solid transparent',
+            borderRight: '6px solid #2c3e50'
+          }}></div>
+          {tooltipInfo.text}
+        </div>
+      )}
+
       {/* Responsive styles for button layout */}
       <style>{`
         @keyframes spin {
@@ -8367,6 +9162,16 @@ const CmSkuDetail: React.FC = () => {
           .filters ul li[style*="marginLeft: auto"] button {
             width: 100% !important;
             min-width: auto !important;
+          }
+        }
+        @keyframes tooltipFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>

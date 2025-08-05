@@ -648,6 +648,7 @@ const CmDashboard: React.FC = () => {
       spokes: [{name: '', email: '', signatory: false}]
     });
     setAdd3PMError(null);
+    setFieldErrors({});
   };
 
   // Handle close Add 3PM modal
@@ -663,6 +664,7 @@ const CmDashboard: React.FC = () => {
       spokes: [{name: '', email: '', signatory: false}]
     });
     setAdd3PMError(null);
+    setFieldErrors({});
   };
 
   // Handle Add 3PM form input changes
@@ -713,64 +715,139 @@ const CmDashboard: React.FC = () => {
   };
 
   // Handle Add 3PM form submission - Show confirmation modal first
-  const handleAdd3PMSave = () => {
-    // Collect all validation errors in sequence
-    const errors: string[] = [];
+  // Add state for field-specific validation errors
+  const [fieldErrors, setFieldErrors] = useState<{
+    cm_code?: string;
+    cm_description?: string;
+    period?: string;
+    region?: string;
+    srm_name?: string;
+    srm_email?: string;
+    spokes?: { [index: number]: { name?: string; email?: string } };
+  }>({});
 
-    // Validate in the order of fields in the form
+  // Add state for custom tooltip
+  const [tooltipInfo, setTooltipInfo] = useState<{
+    show: boolean;
+    text: string;
+    x: number;
+    y: number;
+  }>({
+    show: false,
+    text: '',
+    x: 0,
+    y: 0
+  });
+
+  // Tooltip handlers
+  const showTooltip = (text: string, event: React.MouseEvent) => {
+    setTooltipInfo({
+      show: true,
+      text,
+      x: event.clientX,
+      y: event.clientY
+    });
+  };
+
+  const hideTooltip = () => {
+    setTooltipInfo(prev => ({ ...prev, show: false }));
+  };
+
+  const handleAdd3PMSave = () => {
+    // Clear previous errors
+    setAdd3PMError(null);
+    setFieldErrors({});
+
+    // Collect field-specific validation errors
+    const errors: {
+      cm_code?: string;
+      cm_description?: string;
+      period?: string;
+      region?: string;
+      srm_name?: string;
+      srm_email?: string;
+      spokes?: { [index: number]: { name?: string; email?: string } };
+    } = {};
+
+    // Validate 3PM Code
     if (!new3PMData.cm_code.trim()) {
-      errors.push('3PM Code is required');
+      errors.cm_code = '3PM Code is required';
     }
+
+    // Validate 3PM Description
     if (!new3PMData.cm_description.trim()) {
-      errors.push('3PM Description is required');
+      errors.cm_description = '3PM Description is required';
     }
+
+    // Validate Period
     if (!new3PMData.period.trim()) {
-      errors.push('Period is required');
+      errors.period = 'Reporting Period is required';
     }
+
+    // Validate Region
     if (!new3PMData.region.trim()) {
-      errors.push('Region is required');
+      errors.region = 'Region is required';
     }
+
+    // Validate SRM Name
     if (!new3PMData.srm_name.trim()) {
-      errors.push('SRM Name is required');
+      errors.srm_name = 'SRM Name is required';
     }
+
+    // Validate SRM Email
     if (!new3PMData.srm_email.trim()) {
-      errors.push('SRM Email is required');
+      errors.srm_email = 'SRM Email is required';
     } else {
       // Email validation regex
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(new3PMData.srm_email.trim())) {
-        errors.push('SRM Email must be a valid email address');
+        errors.srm_email = 'SRM Email must be a valid email address';
       }
     }
+
+    // Validate Spokes
     if (new3PMData.spokes.length === 0) {
-      errors.push('At least one spocs is required');
+      errors.spokes = { 0: { name: 'At least one spocs is required' } };
     } else {
-      // Validate all spoke entries
+      const spokeErrors: { [index: number]: { name?: string; email?: string } } = {};
+      let hasSpokeErrors = false;
+
       for (let i = 0; i < new3PMData.spokes.length; i++) {
         const spoke = new3PMData.spokes[i];
+        const spokeError: { name?: string; email?: string } = {};
+
         if (!spoke.name.trim()) {
-          errors.push(`Spocs ${i + 1} Name is required`);
+          spokeError.name = `Spocs ${i + 1} Name is required`;
+          hasSpokeErrors = true;
         }
+
         if (!spoke.email.trim()) {
-          errors.push(`Spocs ${i + 1} Email is required`);
+          spokeError.email = `Spocs ${i + 1} Email is required`;
+          hasSpokeErrors = true;
         } else {
           // Email validation regex
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(spoke.email.trim())) {
-            errors.push(`Spocs ${i + 1} Email must be a valid email address`);
+            spokeError.email = `Spocs ${i + 1} Email must be a valid email address`;
+            hasSpokeErrors = true;
           }
         }
+
+        if (Object.keys(spokeError).length > 0) {
+          spokeErrors[i] = spokeError;
+        }
+      }
+
+      if (hasSpokeErrors) {
+        errors.spokes = spokeErrors;
       }
     }
 
-    // If there are validation errors, display them in sequence
-    if (errors.length > 0) {
-      setAdd3PMError(errors.join('\n'));
+    // If there are validation errors, display them
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
-
-    // Clear any previous errors
-    setAdd3PMError(null);
 
     // Show confirmation modal
     setAdd3PMConfirmData({ ...new3PMData });
@@ -1128,7 +1205,7 @@ const CmDashboard: React.FC = () => {
             <div className="filters">
               <div className="filter-bar" style={{ display: 'flex', gap: '16px', alignItems: 'end', flexWrap: 'wrap', marginBottom: 12 }}>
                 <div style={{ flex: 1, minWidth: 160 }}>
-                  <div className="fBold" style={{ marginBottom: 4 }}>Period</div>
+                  <div className="fBold" style={{ marginBottom: 4 }}>Reporting Period</div>
                   <select
                     value={selectedPeriod}
                     onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -1782,21 +1859,6 @@ const CmDashboard: React.FC = () => {
             </h2>
             
             {add3PMLoading && <Loader />}
-            {add3PMError && (
-              <div style={{
-                background: '#f8d7da',
-                color: '#721c24',
-                padding: '12px',
-                borderRadius: '4px',
-                marginBottom: '20px',
-                border: '1px solid #f5c6cb'
-              }}>
-                <i className="ri-error-warning-line" style={{ marginRight: '8px' }}></i>
-                <div style={{ whiteSpace: 'pre-line' }}>
-                  {add3PMError}
-                </div>
-              </div>
-            )}
 
             {/* Scrollable Content Area */}
             <div style={{
@@ -1808,13 +1870,33 @@ const CmDashboard: React.FC = () => {
               {/* 1. 3PM Code */}
               <div style={{ marginBottom: '20px' }}>
                 <label style={{
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
                   marginBottom: '8px',
                   fontWeight: '600',
                   color: '#333',
                   fontSize: '14px'
                 }}>
                   3PM Code <span style={{ color: '#dc3545' }}>*</span>
+                  <span 
+                    style={{ 
+                      cursor: 'pointer', 
+                      color: '#888',
+                      fontSize: '16px',
+                      transition: 'color 0.2s ease'
+                    }} 
+                    onMouseEnter={(e) => {
+                      showTooltip("Enter the unique 3PM (Third Party Manufacturer) code identifier", e);
+                      e.currentTarget.style.color = '#30ea03';
+                    }}
+                    onMouseLeave={(e) => {
+                      hideTooltip();
+                      e.currentTarget.style.color = '#888';
+                    }}
+                  >
+                    <i className="ri-information-line"></i>
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -1824,25 +1906,58 @@ const CmDashboard: React.FC = () => {
                   style={{
                     width: '100%',
                     padding: '12px',
-                    border: '1px solid #ddd',
+                    border: fieldErrors.cm_code ? '1px solid #dc3545' : '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
                     backgroundColor: '#fff'
                   }}
                   disabled={add3PMLoading}
                 />
+                {fieldErrors.cm_code && (
+                  <div style={{
+                    color: '#dc3545',
+                    fontSize: '12px',
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                    {fieldErrors.cm_code}
+                  </div>
+                )}
               </div>
 
               {/* 2. 3PM Description */}
               <div style={{ marginBottom: '20px' }}>
                 <label style={{
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
                   marginBottom: '8px',
                   fontWeight: '600',
                   color: '#333',
                   fontSize: '14px'
                 }}>
                   3PM Description <span style={{ color: '#dc3545' }}>*</span>
+                  <span 
+                    style={{ 
+                      cursor: 'pointer', 
+                      color: '#888',
+                      fontSize: '16px',
+                      transition: 'color 0.2s ease'
+                    }} 
+                    onMouseEnter={(e) => {
+                      showTooltip("Provide a detailed description of the Third Party Manufacturer", e);
+                      e.currentTarget.style.color = '#30ea03';
+                    }}
+                    onMouseLeave={(e) => {
+                      hideTooltip();
+                      e.currentTarget.style.color = '#888';
+                    }}
+                  >
+                    <i className="ri-information-line"></i>
+                  </span>
                 </label>
                 <textarea
                   value={new3PMData.cm_description}
@@ -1852,7 +1967,7 @@ const CmDashboard: React.FC = () => {
                   style={{
                     width: '100%',
                     padding: '12px',
-                    border: '1px solid #ddd',
+                    border: fieldErrors.cm_description ? '1px solid #dc3545' : '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '14px',
                     backgroundColor: '#fff',
@@ -1860,6 +1975,19 @@ const CmDashboard: React.FC = () => {
                   }}
                   disabled={add3PMLoading}
                 />
+                {fieldErrors.cm_description && (
+                  <div style={{
+                    color: '#dc3545',
+                    fontSize: '12px',
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                    {fieldErrors.cm_description}
+                  </div>
+                )}
               </div>
 
               {/* 3. Period and Region */}
@@ -1867,13 +1995,33 @@ const CmDashboard: React.FC = () => {
                 <div style={{ display: 'flex', gap: '16px' }}>
                   <div style={{ flex: 1 }}>
                     <label style={{
-                      display: 'block',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
                       marginBottom: '8px',
                       fontWeight: '600',
                       color: '#333',
                       fontSize: '14px'
                     }}>
-                      Period <span style={{ color: '#dc3545' }}>*</span>
+                      Reporting Period <span style={{ color: '#dc3545' }}>*</span>
+                      <span 
+                        style={{ 
+                          cursor: 'pointer', 
+                          color: '#888',
+                          fontSize: '16px',
+                          transition: 'color 0.2s ease'
+                        }} 
+                        onMouseEnter={(e) => {
+                          showTooltip("Select the reporting period for this 3PM entry", e);
+                          e.currentTarget.style.color = '#30ea03';
+                        }}
+                        onMouseLeave={(e) => {
+                          hideTooltip();
+                          e.currentTarget.style.color = '#888';
+                        }}
+                      >
+                        <i className="ri-information-line"></i>
+                      </span>
                     </label>
                     <select
                       value={new3PMData.period}
@@ -1881,31 +2029,64 @@ const CmDashboard: React.FC = () => {
                       style={{
                         width: '100%',
                         padding: '12px',
-                        border: '1px solid #ddd',
+                        border: fieldErrors.period ? '1px solid #dc3545' : '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '14px',
                         backgroundColor: '#fff'
                       }}
                       disabled={add3PMLoading}
                     >
-                      <option value="">Select Period</option>
+                      <option value="">Select Reporting Period</option>
                       {periods.map(period => (
                         <option key={period.id} value={period.id.toString()}>
                           {period.period}
                         </option>
                       ))}
                     </select>
+                    {fieldErrors.period && (
+                      <div style={{
+                        color: '#dc3545',
+                        fontSize: '12px',
+                        marginTop: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                        {fieldErrors.period}
+                      </div>
+                    )}
                   </div>
                   
                   <div style={{ flex: 1 }}>
                     <label style={{
-                      display: 'block',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
                       marginBottom: '8px',
                       fontWeight: '600',
                       color: '#333',
                       fontSize: '14px'
                     }}>
                       Region <span style={{ color: '#dc3545' }}>*</span>
+                      <span 
+                        style={{ 
+                          cursor: 'pointer', 
+                          color: '#888',
+                          fontSize: '16px',
+                          transition: 'color 0.2s ease'
+                        }} 
+                        onMouseEnter={(e) => {
+                          showTooltip("Select the geographical region for this 3PM", e);
+                          e.currentTarget.style.color = '#30ea03';
+                        }}
+                        onMouseLeave={(e) => {
+                          hideTooltip();
+                          e.currentTarget.style.color = '#888';
+                        }}
+                      >
+                        <i className="ri-information-line"></i>
+                      </span>
                     </label>
                     <select
                       value={new3PMData.region}
@@ -1913,7 +2094,7 @@ const CmDashboard: React.FC = () => {
                       style={{
                         width: '100%',
                         padding: '12px',
-                        border: '1px solid #ddd',
+                        border: fieldErrors.region ? '1px solid #dc3545' : '1px solid #ddd',
                         borderRadius: '4px',
                         fontSize: '14px',
                         backgroundColor: '#fff'
@@ -1927,6 +2108,19 @@ const CmDashboard: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    {fieldErrors.region && (
+                      <div style={{
+                        color: '#dc3545',
+                        fontSize: '12px',
+                        marginTop: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                        {fieldErrors.region}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1934,45 +2128,95 @@ const CmDashboard: React.FC = () => {
               {/* 4. SRM */}
               <div style={{ marginBottom: '20px' }}>
                 <label style={{
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
                   marginBottom: '8px',
                   fontWeight: '600',
                   color: '#333',
                   fontSize: '14px'
                 }}>
                   SRM <span style={{ color: '#dc3545' }}>*</span>
+                  <span 
+                    style={{ 
+                      cursor: 'pointer', 
+                      color: '#888',
+                      fontSize: '16px',
+                      transition: 'color 0.2s ease'
+                    }} 
+                    onMouseEnter={(e) => {
+                      showTooltip("Supplier Relationship Manager - Enter the name and email of the SRM responsible for this 3PM", e);
+                      e.currentTarget.style.color = '#30ea03';
+                    }}
+                    onMouseLeave={(e) => {
+                      hideTooltip();
+                      e.currentTarget.style.color = '#888';
+                    }}
+                  >
+                    <i className="ri-information-line"></i>
+                  </span>
                 </label>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    type="text"
-                    value={new3PMData.srm_name}
-                    onChange={(e) => handleAdd3PMInputChange('srm_name', e.target.value)}
-                    placeholder="Enter name"
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: '#fff'
-                    }}
-                    disabled={add3PMLoading}
-                  />
-                  <input
-                    type="email"
-                    value={new3PMData.srm_email}
-                    onChange={(e) => handleAdd3PMInputChange('srm_email', e.target.value)}
-                    placeholder="Enter email"
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: '#fff'
-                    }}
-                    disabled={add3PMLoading}
-                  />
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="text"
+                      value={new3PMData.srm_name}
+                      onChange={(e) => handleAdd3PMInputChange('srm_name', e.target.value)}
+                      placeholder="Enter name"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: fieldErrors.srm_name ? '1px solid #dc3545' : '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: '#fff'
+                      }}
+                      disabled={add3PMLoading}
+                    />
+                    {fieldErrors.srm_name && (
+                      <div style={{
+                        color: '#dc3545',
+                        fontSize: '12px',
+                        marginTop: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                        {fieldErrors.srm_name}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="email"
+                      value={new3PMData.srm_email}
+                      onChange={(e) => handleAdd3PMInputChange('srm_email', e.target.value)}
+                      placeholder="Enter email"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: fieldErrors.srm_email ? '1px solid #dc3545' : '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        backgroundColor: '#fff'
+                      }}
+                      disabled={add3PMLoading}
+                    />
+                    {fieldErrors.srm_email && (
+                      <div style={{
+                        color: '#dc3545',
+                        fontSize: '12px',
+                        marginTop: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                        {fieldErrors.srm_email}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1980,11 +2224,32 @@ const CmDashboard: React.FC = () => {
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     fontWeight: '600',
                     color: '#333',
                     fontSize: '14px'
                   }}>
                     Spocs <span style={{ color: '#dc3545' }}>*</span>
+                    <span 
+                      style={{ 
+                        cursor: 'pointer', 
+                        color: '#888',
+                        fontSize: '16px',
+                        transition: 'color 0.2s ease'
+                      }} 
+                      onMouseEnter={(e) => {
+                        showTooltip("Single Point of Contact - Add the names and emails of key contacts for this 3PM. At least one contact is required.", e);
+                        e.currentTarget.style.color = '#30ea03';
+                      }}
+                      onMouseLeave={(e) => {
+                        hideTooltip();
+                        e.currentTarget.style.color = '#888';
+                      }}
+                    >
+                      <i className="ri-information-line"></i>
+                    </span>
                   </label>
                   <button
                     type="button"
@@ -2037,13 +2302,26 @@ const CmDashboard: React.FC = () => {
                           style={{
                             width: '100%',
                             padding: '12px',
-                            border: '1px solid #ddd',
+                            border: fieldErrors.spokes?.[index]?.name ? '1px solid #dc3545' : '1px solid #ddd',
                             borderRadius: '4px',
                             fontSize: '14px',
                             backgroundColor: '#fff'
                           }}
                           disabled={add3PMLoading}
                         />
+                        {fieldErrors.spokes?.[index]?.name && (
+                          <div style={{
+                            color: '#dc3545',
+                            fontSize: '12px',
+                            marginTop: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                            {fieldErrors.spokes[index].name}
+                          </div>
+                        )}
                       </div>
                       <div style={{ flex: 1 }}>
                         <input
@@ -2054,13 +2332,26 @@ const CmDashboard: React.FC = () => {
                           style={{
                             width: '100%',
                             padding: '12px',
-                            border: '1px solid #ddd',
+                            border: fieldErrors.spokes?.[index]?.email ? '1px solid #dc3545' : '1px solid #ddd',
                             borderRadius: '4px',
                             fontSize: '14px',
                             backgroundColor: '#fff'
                           }}
                           disabled={add3PMLoading}
                         />
+                        {fieldErrors.spokes?.[index]?.email && (
+                          <div style={{
+                            color: '#dc3545',
+                            fontSize: '12px',
+                            marginTop: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                            {fieldErrors.spokes[index].email}
+                          </div>
+                        )}
                       </div>
                       <div style={{ 
                         display: 'flex', 
@@ -2130,6 +2421,19 @@ const CmDashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                {fieldErrors.spokes && Object.keys(fieldErrors.spokes).length > 0 && !fieldErrors.spokes[0] && (
+                  <div style={{
+                    color: '#dc3545',
+                    fontSize: '12px',
+                    marginTop: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <i className="ri-error-warning-line" style={{ fontSize: '14px' }}></i>
+                    At least one spocs is required
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2211,6 +2515,47 @@ const CmDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Custom Tooltip */}
+      {tooltipInfo.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: tooltipInfo.y - 10,
+            left: tooltipInfo.x + 10,
+            background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+            color: '#fff',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: '500',
+            maxWidth: '300px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 10000,
+            pointerEvents: 'none',
+            animation: 'tooltipFadeIn 0.2s ease-out',
+            lineHeight: '1.4',
+            whiteSpace: 'pre-wrap',
+            wordWrap: 'break-word'
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '-6px',
+            transform: 'translateY(-50%)',
+            width: 0,
+            height: 0,
+            borderTop: '6px solid transparent',
+            borderBottom: '6px solid transparent',
+            borderRight: '6px solid #2c3e50'
+          }}></div>
+          {tooltipInfo.text}
+        </div>
+      )}
+
       <style>{`
         .filter-bar .multi-select-container, .filter-bar .multi-select-trigger, .filter-bar .filter-control {
           min-height: 38px !important;
@@ -2273,6 +2618,16 @@ const CmDashboard: React.FC = () => {
           .add-3pm-modal h2 {
             font-size: 20px !important;
             padding-right: 30px !important;
+          }
+        }
+        @keyframes tooltipFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>

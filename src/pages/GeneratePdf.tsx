@@ -84,7 +84,7 @@ const componentFieldValues: { [key: string]: string } = {
   'Component dimensions (3D - LxWxH, 2D - LxW)': 'component_dimensions'
 };
 
-const SedForApproval: React.FC = () => {
+const GeneratePdf: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
@@ -1514,4 +1514,4 @@ const SedForApproval: React.FC = () => {
   );
 };
 
-export default SedForApproval; 
+export default GeneratePdf; 

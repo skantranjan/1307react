@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard';
 import CmDashboard from './pages/CmDashboard';
 import CmSkuDetail from './pages/CmSkuDetail';
 import SedForApproval from './pages/SedForApproval';
+import GeneratePdf from './pages/GeneratePdf';
+import UploadData from './pages/UploadData';
 
 import './assets/css/styles.css';
 import './assets/css/remix-icon.css';
@@ -20,6 +22,8 @@ function App() {
         <Route path="/cm-dashboard" element={<CmDashboard />} />
         <Route path="/cm/:cmCode" element={<CmSkuDetail />} />
         <Route path="/sedforapproval" element={<SedForApproval />} />
+        <Route path="/generate-pdf" element={<GeneratePdf />} />
+        <Route path="/upload-data" element={<UploadData />} />
       </Routes>
     </Router>
   );
