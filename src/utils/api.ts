@@ -1,12 +1,9 @@
-// API utility functions with Authorization Bearer token
-const API_BASE_URL = 'http://localhost:3000';
-const AUTH_TOKEN = 'Qw8!zR2@pL6';
+// API utility functions with session-based authentication
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-// Helper function to create headers with Authorization
+// Helper function to create headers with session cookies
 const createHeaders = (contentType?: string): HeadersInit => {
   const headers: HeadersInit = {};
-  
-  headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
   
   if (contentType) {
     headers['Content-Type'] = contentType;
@@ -19,7 +16,8 @@ const createHeaders = (contentType?: string): HeadersInit => {
 export const apiGet = async (endpoint: string): Promise<any> => {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'GET',
-    headers: createHeaders()
+    headers: createHeaders(),
+    credentials: 'include' // Include cookies for session authentication
   });
   
   if (!response.ok) {
@@ -36,6 +34,7 @@ export const apiPost = async (endpoint: string, data: any, contentType: string =
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
     headers: createHeaders(contentType),
+    credentials: 'include', // Include cookies for session authentication
     body
   });
   
@@ -64,6 +63,7 @@ export const apiPut = async (endpoint: string, data: any, contentType: string = 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'PUT',
     headers: createHeaders(contentType),
+    credentials: 'include', // Include cookies for session authentication
     body
   });
   
@@ -79,6 +79,7 @@ export const apiPatch = async (endpoint: string, data: any): Promise<any> => {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'PATCH',
     headers: createHeaders('application/json'),
+    credentials: 'include', // Include cookies for session authentication
     body: JSON.stringify(data)
   });
   
@@ -93,7 +94,8 @@ export const apiPatch = async (endpoint: string, data: any): Promise<any> => {
 export const apiDelete = async (endpoint: string): Promise<any> => {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'DELETE',
-    headers: createHeaders()
+    headers: createHeaders(),
+    credentials: 'include' // Include cookies for session authentication
   });
   
   if (!response.ok) {
@@ -107,9 +109,7 @@ export const apiDelete = async (endpoint: string): Promise<any> => {
 export const apiPostFormData = async (endpoint: string, formData: FormData): Promise<any> => {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${AUTH_TOKEN}`
-    },
+    credentials: 'include', // Include cookies for session authentication
     body: formData
   });
   
@@ -123,9 +123,7 @@ export const apiPostFormData = async (endpoint: string, formData: FormData): Pro
 export const apiPutFormData = async (endpoint: string, formData: FormData): Promise<any> => {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${AUTH_TOKEN}`
-    },
+    credentials: 'include', // Include cookies for session authentication
     body: formData
   });
   
